@@ -1,15 +1,29 @@
 syntax = "proto3";
 
-package com.lastmile.station;
+package com.lastmile.station.proto;
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";          // <--- REQUIRED for envoy transcoder
+import "google/protobuf/empty.proto"; 
 
 option java_multiple_files = true;
 option java_package = "com.lastmile.station.proto";
 option java_outer_classname = "StationProto";
 
 service StationService {
-  rpc GetStationsAlongRoute(GetStationsAlongRouteRequest) returns (GetStationsAlongRouteResponse);
+  rpc GetStationsAlongRoute(GetStationsAlongRouteRequest) returns (GetStationsAlongRouteResponse)
+  {
+    option (google.api.http) = {
+      post: "/station/route"
+      body: "*"
+    };
+  };
   rpc GetStationInfo(GetStationInfoRequest) returns (GetStationInfoResponse);
-  rpc GetAllStations(GetAllStationsRequest) returns (GetAllStationsResponse);
+  rpc GetAllStations(GetAllStationsRequest) returns (GetAllStationsResponse){
+    option (google.api.http) = {
+      get: "/station"
+    };
+  };
 }
 
 message GetStationsAlongRouteRequest {

@@ -1,16 +1,39 @@
 syntax = "proto3";
 
-package com.lastmile.driver;
+package com.lastmile.driver.proto;
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";          // <--- REQUIRED for envoy transcoder
+import "google/protobuf/empty.proto";    // <--- optional but recommended
 
 option java_multiple_files = true;
 option java_package = "com.lastmile.driver.proto";
 option java_outer_classname = "DriverProto";
 
 service DriverService {
-  rpc RegisterRoute(RegisterRouteRequest) returns (RegisterRouteResponse);
-  rpc UpdateLocation(UpdateLocationRequest) returns (UpdateLocationResponse);
-  rpc UpdatePickupStatus(UpdatePickupStatusRequest) returns (UpdatePickupStatusResponse);
-  rpc GetDriverInfo(GetDriverInfoRequest) returns (GetDriverInfoResponse);
+  rpc RegisterRoute(RegisterRouteRequest) returns (RegisterRouteResponse){
+    option (google.api.http) = {
+      post: "/driver/register-route"
+      body: "*"
+    };
+  };
+  rpc UpdateLocation(UpdateLocationRequest) returns (UpdateLocationResponse){
+    option (google.api.http) = {
+      post: "/driver/{driver_id}/location"
+      body: "*"
+    };
+  };
+  rpc UpdatePickupStatus(UpdatePickupStatusRequest) returns (UpdatePickupStatusResponse){
+    option (google.api.http) = {
+      post: "/driver/{driver_id}/pickup-status"
+      body: "*"
+    };
+  };
+  rpc GetDriverInfo(GetDriverInfoRequest) returns (GetDriverInfoResponse){
+    option (google.api.http) = {
+      get: "/driver/{driver_id}"
+    };
+  };
   rpc ListDrivers(ListDriversRequest) returns (ListDriversResponse);
 }
 

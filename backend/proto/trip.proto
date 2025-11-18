@@ -1,6 +1,10 @@
 syntax = "proto3";
 
-package com.lastmile.trip;
+package com.lastmile.trip.proto;
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";          // <--- REQUIRED for envoy transcoder
+import "google/protobuf/empty.proto"; 
 
 option java_multiple_files = true;
 option java_package = "com.lastmile.trip.proto";
@@ -9,9 +13,23 @@ option java_outer_classname = "TripProto";
 service TripService {
   rpc CreateTrip(CreateTripRequest) returns (CreateTripResponse);
   rpc UpdateTripStatus(UpdateTripStatusRequest) returns (UpdateTripStatusResponse);
-  rpc GetTripInfo(GetTripInfoRequest) returns (GetTripInfoResponse);
-  rpc RecordPickup(RecordPickupRequest) returns (RecordPickupResponse);
-  rpc RecordDropoff(RecordDropoffRequest) returns (RecordDropoffResponse);
+  rpc GetTripInfo(GetTripInfoRequest) returns (GetTripInfoResponse){
+    option (google.api.http) = {
+      get: "/trip/{trip_id}"
+    };
+  };
+  rpc RecordPickup(RecordPickupRequest) returns (RecordPickupResponse){
+    option (google.api.http) = {
+      post: "/trip/{trip_id}/pickup"
+      body: "*"
+    };
+  };
+  rpc RecordDropoff(RecordDropoffRequest) returns (RecordDropoffResponse){
+    option (google.api.http) = {
+      post: "/trip/{trip_id}/dropoff"
+      body: "*"
+    };
+  };
 }
 
 message CreateTripRequest {
