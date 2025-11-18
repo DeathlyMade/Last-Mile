@@ -1,15 +1,28 @@
 syntax = "proto3";
 
-package com.lastmile.location;
+package com.lastmile.location.proto;
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";          // <--- REQUIRED for envoy transcoder
+import "google/protobuf/empty.proto"; 
 
 option java_multiple_files = true;
 option java_package = "com.lastmile.location.proto";
 option java_outer_classname = "LocationProto";
 
 service LocationService {
-  rpc UpdateLocation(UpdateLocationRequest) returns (UpdateLocationResponse);
+  rpc UpdateLocation(UpdateLocationRequest) returns (UpdateLocationResponse){
+    option (google.api.http) = {
+      post: "/location/{driver_id}"
+      body: "*"
+    };
+  };
   rpc GetLocation(GetLocationRequest) returns (GetLocationResponse);
-  rpc FindNearbyDrivers(FindNearbyDriversRequest) returns (FindNearbyDriversResponse);
+  rpc FindNearbyDrivers(FindNearbyDriversRequest) returns (FindNearbyDriversResponse){
+    option (google.api.http) = {
+      get: "/location/nearby"
+    };
+  };
 }
 
 message UpdateLocationRequest {

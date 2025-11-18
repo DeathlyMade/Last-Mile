@@ -1,15 +1,33 @@
 syntax = "proto3";
 
-package com.lastmile.rider;
+package com.lastmile.rider.proto;
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";          // <--- REQUIRED for envoy transcoder
+import "google/protobuf/empty.proto"; 
 
 option java_multiple_files = true;
 option java_package = "com.lastmile.rider.proto";
 option java_outer_classname = "RiderProto";
 
 service RiderService {
-  rpc RegisterRideRequest(RegisterRideRequestRequest) returns (RegisterRideRequestResponse);
-  rpc GetRideStatus(GetRideStatusRequest) returns (GetRideStatusResponse);
-  rpc CancelRideRequest(CancelRideRequestRequest) returns (CancelRideRequestResponse);
+  rpc RegisterRideRequest(RegisterRideRequestRequest) returns (RegisterRideRequestResponse){
+    option (google.api.http) = {
+      post: "/rider/ride-request"
+      body: "*"
+    };
+  };
+  rpc GetRideStatus(GetRideStatusRequest) returns (GetRideStatusResponse){
+    option (google.api.http) = {
+      get: "/rider/ride-request/{ride_request_id}"
+    };
+  };
+  rpc CancelRideRequest(CancelRideRequestRequest) returns (CancelRideRequestResponse){
+    option (google.api.http) = {
+      post: "/rider/ride-request/{ride_request_id}/cancel"
+      body: "*"
+    };
+  };
 }
 
 message RegisterRideRequestRequest {

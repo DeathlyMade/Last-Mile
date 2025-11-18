@@ -1,14 +1,27 @@
 syntax = "proto3";
 
-package com.lastmile.matching;
+package com.lastmile.matching.proto;
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";          // <--- REQUIRED for envoy transcoder
+import "google/protobuf/empty.proto"; 
 
 option java_multiple_files = true;
 option java_package = "com.lastmile.matching.proto";
 option java_outer_classname = "MatchingProto";
 
 service MatchingService {
-  rpc MatchRiderWithDriver(MatchRiderWithDriverRequest) returns (MatchRiderWithDriverResponse);
-  rpc GetMatchStatus(GetMatchStatusRequest) returns (GetMatchStatusResponse);
+  rpc MatchRiderWithDriver(MatchRiderWithDriverRequest) returns (MatchRiderWithDriverResponse){
+    option (google.api.http) = {
+      post: "/match"
+      body: "*"
+    };
+  };
+  rpc GetMatchStatus(GetMatchStatusRequest) returns (GetMatchStatusResponse){
+    option (google.api.http) = {
+      get: "/match/{match_id}"
+    };
+  };
 }
 
 message MatchRiderWithDriverRequest {

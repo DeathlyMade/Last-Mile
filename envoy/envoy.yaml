@@ -53,47 +53,6 @@ static_resources:
                                 key: "Access-Control-Allow-Credentials"
                                 value: "true"
 
-                        # 2) Explicit REST -> gRPC mappings for the User endpoints
-                        #    Add response_headers_to_add so actual POST responses include CORS headers.
-                        - match:
-                            prefix: "/user/register"
-                          route:
-                            cluster: user-service
-                            cors: {}
-                          response_headers_to_add:
-                            - header:
-                                key: "Access-Control-Allow-Origin"
-                                value: "http://localhost:3000"
-                            - header:
-                                key: "Access-Control-Allow-Credentials"
-                                value: "true"
-
-                        - match:
-                            prefix: "/user/login"
-                          route:
-                            cluster: user-service
-                            cors: {}
-                          response_headers_to_add:
-                            - header:
-                                key: "Access-Control-Allow-Origin"
-                                value: "http://localhost:3000"
-                            - header:
-                                key: "Access-Control-Allow-Credentials"
-                                value: "true"
-
-                        - match:
-                            prefix: "/user/profile"
-                          route:
-                            cluster: user-service
-                            cors: {}
-                          response_headers_to_add:
-                            - header:
-                                key: "Access-Control-Allow-Origin"
-                                value: "http://localhost:3000"
-                            - header:
-                                key: "Access-Control-Allow-Credentials"
-                                value: "true"
-
                         # 3) gRPC prefix routes (for grpc/grpc-web clients) — keep their CORS headers too
                         - match:
                             prefix: "/com.lastmile.user.proto.UserService"
@@ -192,13 +151,19 @@ static_resources:
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors
 
-                  # JSON <-> gRPC transcoder
                   - name: envoy.filters.http.grpc_json_transcoder
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_json_transcoder.v3.GrpcJsonTranscoder
                       proto_descriptor: "/etc/envoy/proto.pb"
                       services:
                         - "com.lastmile.user.proto.UserService"
+                        - "com.lastmile.driver.proto.DriverService"
+                        - "com.lastmile.location.proto.LocationService"
+                        - "com.lastmile.matching.proto.MatchingService"
+                        - "com.lastmile.notification.proto.NotificationService"
+                        - "com.lastmile.rider.proto.RiderService"
+                        - "com.lastmile.station.proto.StationService"
+                        - "com.lastmile.trip.proto.TripService"
                       convert_grpc_status: true
                       auto_mapping: false
 
