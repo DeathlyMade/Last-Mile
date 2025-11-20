@@ -28,6 +28,7 @@ public class UserGrpcService extends UserServiceGrpc.UserServiceImplBase {
         String password = request.getPassword();
         String name = request.getName();
         com.lastmile.user.proto.UserType userType = request.getUserType();
+        String phone = request.getPhone();
         
         RegisterUserResponse.Builder responseBuilder = RegisterUserResponse.newBuilder();
         
@@ -42,7 +43,8 @@ public class UserGrpcService extends UserServiceGrpc.UserServiceImplBase {
                 user.setPassword(password);
                 user.setName(name);
                 user.setUserType(userType == com.lastmile.user.proto.UserType.DRIVER ? 
-                        User.UserType.DRIVER : User.UserType.RIDER);
+                    User.UserType.DRIVER : User.UserType.RIDER);
+                user.setPhone(phone);
                 
                 user = userRepository.save(user);
                 
@@ -109,9 +111,10 @@ public class UserGrpcService extends UserServiceGrpc.UserServiceImplBase {
             com.lastmile.user.proto.UserType userType = user.getUserType() == User.UserType.DRIVER ?
                     com.lastmile.user.proto.UserType.DRIVER : com.lastmile.user.proto.UserType.RIDER;
             
-            responseBuilder.setUserId(user.getUserId())
+                responseBuilder.setUserId(user.getUserId())
                     .setEmail(user.getEmail())
                     .setName(user.getName())
+                    .setPhone(user.getPhone() == null ? "" : user.getPhone())
                     .setUserType(userType)
                     .setSuccess(true);
         } catch (Exception e) {

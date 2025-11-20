@@ -12,6 +12,7 @@ public class User {
     private String email;
     private String password;
     private String name;
+    private String phone; // Added phone field
     private UserType userType;
     
     public enum UserType {

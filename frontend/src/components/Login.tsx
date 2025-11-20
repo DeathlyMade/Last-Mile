@@ -4,7 +4,10 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Car, LogIn, Loader2 } from 'lucide-react';
+import * as React from 'react';
 import { toast } from 'sonner@2.0.3';
+import { userApi } from '../lib/api';
+import { setSession, resolveName, SessionUser } from '../lib/auth';
 
 interface LoginProps {
   onLogin: (user: any) => void;
@@ -19,29 +22,41 @@ export function Login({ onLogin, onSwitchToRegister }: LoginProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
-      // Mock login - in production, call userApi.login
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Demo users
-      const demoUsers = {
-        'driver@demo.com': { id: 'd1', name: 'John Driver', email: 'driver@demo.com', phone: '+1234567890', role: 'driver' },
-        'rider@demo.com': { id: 'r1', name: 'Sarah Rider', email: 'rider@demo.com', phone: '+1234567891', role: 'rider' },
-      };
-
-      const user = demoUsers[email as keyof typeof demoUsers];
-      
-      if (user && password === 'demo123') {
-        localStorage.setItem('user', JSON.stringify(user));
-        localStorage.setItem('auth_token', 'demo_token_' + user.id);
-        toast.success(`Welcome back, ${user.name}!`);
-        onLogin(user);
-      } else {
-        toast.error('Invalid credentials. Try driver@demo.com or rider@demo.com with password: demo123');
+      const { data } = await userApi.login({ email, password });
+      if (!data?.success) {
+        toast.error(data?.message || 'Invalid credentials');
+        return;
       }
-    } catch (error) {
-      toast.error('Login failed. Please try again.');
+      // Store token early for profile fetch
+      if (data.token) {
+        localStorage.setItem('auth_token', data.token); // kept for interceptor compatibility
+      }
+      // Fetch profile for role & name details
+      const userId = data.user_id || data.userId; // handle both snake_case & camelCase
+      let profile: any = {};
+      try {
+        if (userId) {
+          const profileResp = await userApi.getProfile(userId);
+          profile = profileResp.data || {};
+        }
+      } catch {
+        // swallow profile errors; we'll fallback to form/email
+      }
+      const profileUserId = profile.user_id || profile.userId || userId;
+      const role = profile?.user_type === 'DRIVER' ? 'driver' : 'rider';
+      const user: SessionUser = {
+        id: profileUserId || '',
+        name: resolveName(profile?.name, ''),
+        email: profile?.email || email,
+        phone: profile?.phone || '',
+        role: role === 'driver' ? 'driver' : 'rider',
+      };
+      setSession(user, data.token);
+      toast.success(`Welcome back, ${user.name}!`);
+      onLogin(user);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -92,11 +107,7 @@ export function Login({ onLogin, onSwitchToRegister }: LoginProps) {
                 />
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
-                <p className="text-blue-900 mb-2">Demo Credentials:</p>
-                <p className="text-blue-700 text-xs">Driver: driver@demo.com / demo123</p>
-                <p className="text-blue-700 text-xs">Rider: rider@demo.com / demo123</p>
-              </div>
+              {/* Info box removed now that real authentication is enabled */}
 
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (

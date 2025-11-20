@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8080';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -18,9 +18,22 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+export interface RegisterPayload {
+  email: string;
+  password: string;
+  name: string;
+  phone: string;
+  user_type: 'RIDER' | 'DRIVER';
+}
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
 export const userApi = {
-  register: (data: any) => api.post('/user/register', data),
-  login: (data: any) => api.post('/user/login', data),
+  register: (data: RegisterPayload) => api.post('/user/register', data),
+  login: (data: LoginPayload) => api.post('/user/login', data),
   getProfile: (userId: string) => api.get(`/user/profile/${userId}`),
 };
 

@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -5,6 +6,8 @@ import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Car, UserPlus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import { userApi } from '../lib/api';
+import { setSession, resolveName, SessionUser } from '../lib/auth';
 
 interface RegisterProps {
   onRegister: (user: any) => void;
@@ -22,25 +25,35 @@ export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
-      // Mock registration - in production, call userApi.register
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const user = {
-        id: Math.random().toString(36).substr(2, 9),
+      const payload = {
+        email,
+        password,
         name,
+        phone,
+        user_type: role === 'rider' ? 'RIDER' : 'DRIVER',
+      } as const;
+
+      const { data } = await userApi.register(payload);
+
+      if (!data?.success) {
+        toast.error(data?.message || 'Registration failed');
+        return;
+      }
+
+      const returnedId = data.user_id || data.userId;
+      const user: SessionUser = {
+        id: returnedId || '',
+        name: resolveName(name, name),
         email,
         phone,
-        role,
+        role: role === 'driver' ? 'driver' : 'rider',
       };
-
-      localStorage.setItem('user', JSON.stringify(user));
-      localStorage.setItem('auth_token', 'token_' + user.id);
+      setSession(user, data.token);
       toast.success('Account created successfully!');
       onRegister(user);
-    } catch (error) {
-      toast.error('Registration failed. Please try again.');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
