@@ -60,7 +60,28 @@ export function Login({ onLogin, onSwitchToRegister }: LoginProps) {
         // swallow profile errors; we'll fallback to form/email
       }
       const profileUserId = profile.user_id || profile.userId || userId;
-      const role = profile?.user_type === 'DRIVER' ? 'driver' : 'rider';
+      // Robust role inference: accept multiple fields and case-insensitive values
+      const inferRole = (p: any, loginObj: any): 'driver' | 'rider' => {
+        const candidates = [
+          p?.user_type,
+          p?.userType,
+          p?.role,
+          loginObj?.user_type,
+          loginObj?.userType,
+          loginObj?.role,
+          p?.is_driver ? 'driver' : undefined,
+          p?.isDriver ? 'driver' : undefined,
+        ]
+          .filter(Boolean)
+          .map((v: any) => String(v).toLowerCase());
+        for (const v of candidates) {
+          if (v.includes('driver')) return 'driver';
+          if (v.includes('rider')) return 'rider';
+        }
+        // Default conservatively to rider if unknown
+        return 'rider';
+      };
+      const role = inferRole(profile, data);
       const user: SessionUser = {
         id: profileUserId || '',
         name: resolveName(profile?.name, ''),

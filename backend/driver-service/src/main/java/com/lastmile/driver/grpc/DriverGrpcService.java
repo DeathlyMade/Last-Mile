@@ -9,6 +9,9 @@ import net.devh.boot.grpc.client.inject.GrpcClient;
 import net.devh.boot.grpc.server.service.GrpcService;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.Instant;
 import java.util.*;
 
 @GrpcService
@@ -193,6 +196,116 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
                 .build();
         
         responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
+
+    // --- Dashboard aggregation ---
+    @Override
+    public void getDriverDashboard(GetDriverDashboardRequest request, StreamObserver<GetDriverDashboardResponse> responseObserver) {
+        String driverId = request.getDriverId();
+        Driver driver = driverRepository.findById(driverId).orElse(null);
+        GetDriverDashboardResponse.Builder b = GetDriverDashboardResponse.newBuilder();
+        if (driver == null) {
+            b.setSuccess(false);
+            responseObserver.onNext(b.build());
+            responseObserver.onCompleted();
+            return;
+        }
+
+        // Ensure lists not null
+        if (driver.getActiveTrips() == null) driver.setActiveTrips(new ArrayList<>());
+        if (driver.getRideHistory() == null) driver.setRideHistory(new ArrayList<>());
+
+        // Compute earnings (total already stored; recalc safety if zero)
+        int totalEarnings = driver.getTotalEarnings();
+        if (totalEarnings == 0 && !driver.getRideHistory().isEmpty()) {
+            totalEarnings = driver.getRideHistory().stream().mapToInt(Driver.TripRecord::getFare).sum();
+        }
+
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        LocalDate yesterday = today.minusDays(1);
+        int todayEarnings = 0;
+        int yesterdayEarnings = 0;
+        for (Driver.TripRecord rec : driver.getRideHistory()) {
+            LocalDate tripDay = Instant.ofEpochMilli(rec.getDropoffTimestamp() == 0 ? rec.getPickupTimestamp() : rec.getDropoffTimestamp())
+                    .atZone(ZoneId.of("Asia/Kolkata")).toLocalDate();
+            if (tripDay.equals(today)) todayEarnings += rec.getFare();
+            else if (tripDay.equals(yesterday)) yesterdayEarnings += rec.getFare();
+        }
+
+        // Build active trips list
+        for (Driver.TripRecord rec : driver.getActiveTrips()) {
+            TripInfo info = TripInfo.newBuilder()
+                    .setTripId(rec.getTripId())
+                    .setRiderName(rec.getRiderName())
+                    .setRiderRating(rec.getRiderRating())
+                    .setPickupStation(rec.getPickupStation())
+                    .setDestination(rec.getDestination())
+                    .setStatus(rec.getStatus())
+                    .setFare(rec.getFare())
+                    .setPickupTimestamp(rec.getPickupTimestamp())
+                    .build();
+            b.addActiveTrips(info);
+        }
+
+        for (Driver.TripRecord rec : driver.getRideHistory()) {
+            RideHistoryItem item = RideHistoryItem.newBuilder()
+                    .setTripId(rec.getTripId())
+                    .setDate(Instant.ofEpochMilli(rec.getPickupTimestamp()).atZone(ZoneId.of("Asia/Kolkata")).toLocalDate().toString())
+                    .setRiderName(rec.getRiderName())
+                    .setDestination(rec.getDestination())
+                    .setFare(rec.getFare())
+                    .setRatingGiven(rec.getRiderRatingGiven())
+                    .setPickupTimestamp(rec.getPickupTimestamp())
+                    .setDropoffTimestamp(rec.getDropoffTimestamp())
+                    .build();
+            b.addRideHistory(item);
+        }
+
+        b.setSuccess(true)
+                .setDriverId(driver.getDriverId())
+                .setDriverRating(driver.getRating())
+                .setTotalEarnings(totalEarnings)
+                .setTodayEarnings(todayEarnings)
+                .setYesterdayEarnings(yesterdayEarnings)
+                .setOriginStation(driver.getOriginStation() == null ? "" : driver.getOriginStation())
+                .setDestination(driver.getDestination() == null ? "" : driver.getDestination())
+                .setAvailableSeats(driver.getAvailableSeats())
+                .addAllMetroStations(driver.getMetroStations() == null ? List.of() : driver.getMetroStations())
+                .setIsPickingUp(driver.isPickingUp());
+
+        if (driver.getCurrentLocation() != null) {
+            Location l = Location.newBuilder()
+                    .setLatitude(driver.getCurrentLocation().getLatitude())
+                    .setLongitude(driver.getCurrentLocation().getLongitude())
+                    .setTimestamp(driver.getCurrentLocation().getTimestamp())
+                    .build();
+            b.setCurrentLocation(l);
+        }
+
+        responseObserver.onNext(b.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void rateRider(RateRiderRequest request, StreamObserver<RateRiderResponse> responseObserver) {
+        Driver driver = driverRepository.findById(request.getDriverId()).orElse(null);
+        if (driver == null) {
+            responseObserver.onNext(RateRiderResponse.newBuilder().setSuccess(false).setMessage("Driver not found").build());
+            responseObserver.onCompleted();
+            return;
+        }
+        if (driver.getRideHistory() == null) driver.setRideHistory(new ArrayList<>());
+        boolean updated = false;
+        for (Driver.TripRecord rec : driver.getRideHistory()) {
+            if (rec.getTripId().equals(request.getTripId())) {
+                rec.setRiderRatingGiven(request.getRating());
+                updated = true;
+                break;
+            }
+        }
+        if (updated) driverRepository.save(driver);
+        responseObserver.onNext(RateRiderResponse.newBuilder().setSuccess(updated).setMessage(updated?"Rating saved":"Trip not found").build());
         responseObserver.onCompleted();
     }
 }

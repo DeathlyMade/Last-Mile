@@ -28,6 +28,20 @@ service RiderService {
       body: "*"
     };
   };
+
+  // List all ride requests for a rider
+  rpc ListRideRequests(ListRideRequestsRequest) returns (ListRideRequestsResponse) {
+    option (google.api.http) = {
+      get: "/rider/ride-requests/{rider_id}"
+    };
+  };
+
+  // Hard delete a ride request
+  rpc DeleteRideRequest(DeleteRideRequestRequest) returns (DeleteRideRequestResponse) {
+    option (google.api.http) = {
+      delete: "/rider/ride-request/{ride_request_id}"
+    };
+  };
 }
 
 message RegisterRideRequestRequest {
@@ -60,6 +74,35 @@ message CancelRideRequestRequest {
 }
 
 message CancelRideRequestResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message RideRequestItem {
+  string ride_request_id = 1;
+  string rider_id = 2;
+  string metro_station = 3;
+  string destination = 4;
+  int64 arrival_time = 5;
+  RideStatus status = 6;
+  string driver_id = 7;
+  string trip_id = 8;
+}
+
+message ListRideRequestsRequest {
+  string rider_id = 1;
+}
+
+message ListRideRequestsResponse {
+  repeated RideRequestItem ride_requests = 1;
+  bool success = 2;
+}
+
+message DeleteRideRequestRequest {
+  string ride_request_id = 1;
+}
+
+message DeleteRideRequestResponse {
   bool success = 1;
   string message = 2;
 }

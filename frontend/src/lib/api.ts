@@ -73,12 +73,15 @@ export const driverApi = {
   updateLocation: (driverId: string, data: any) => api.post(`/driver/${driverId}/location`, data),
   updatePickupStatus: (driverId: string, data: any) => api.post(`/driver/${driverId}/pickup-status`, data),
   getDriverInfo: (driverId: string) => api.get(`/driver/${driverId}`),
+  getDashboard: (driverId: string) => api.get(`/driver/dashboard/${driverId}`),
 };
 
 export const riderApi = {
   registerRideRequest: (data: any) => api.post('/rider/ride-request', data),
   getRideStatus: (rideRequestId: string) => api.get(`/rider/ride-request/${rideRequestId}`),
   cancelRideRequest: (rideRequestId: string) => api.post(`/rider/ride-request/${rideRequestId}/cancel`),
+  listRideRequests: (riderId: string) => api.get(`/rider/ride-requests/${riderId}`),
+  deleteRideRequest: (rideRequestId: string) => api.delete(`/rider/ride-request/${rideRequestId}`),
 };
 
 export const matchingApi = {

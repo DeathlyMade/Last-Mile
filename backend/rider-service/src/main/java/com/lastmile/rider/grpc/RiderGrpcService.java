@@ -107,5 +107,48 @@ public class RiderGrpcService extends RiderServiceGrpc.RiderServiceImplBase {
             case CANCELLED -> com.lastmile.rider.proto.RideStatus.CANCELLED;
         };
     }
+
+    @Override
+    public void listRideRequests(ListRideRequestsRequest request,
+                                 StreamObserver<ListRideRequestsResponse> responseObserver) {
+        String riderId = request.getRiderId();
+        ListRideRequestsResponse.Builder builder = ListRideRequestsResponse.newBuilder();
+        try {
+            java.util.List<RideRequest> list = rideRequestRepository.findByRiderId(riderId);
+            for (RideRequest rr : list) {
+                RideRequestItem item = RideRequestItem.newBuilder()
+                        .setRideRequestId(rr.getRideRequestId())
+                        .setRiderId(rr.getRiderId())
+                        .setMetroStation(rr.getMetroStation())
+                        .setDestination(rr.getDestination())
+                        .setArrivalTime(rr.getArrivalTime())
+                        .setStatus(convertStatus(rr.getStatus()))
+                        .setDriverId(rr.getDriverId() == null ? "" : rr.getDriverId())
+                        .setTripId(rr.getTripId() == null ? "" : rr.getTripId())
+                        .build();
+                builder.addRideRequests(item);
+            }
+            builder.setSuccess(true);
+        } catch (Exception e) {
+            builder.setSuccess(false);
+        }
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void deleteRideRequest(DeleteRideRequestRequest request,
+                                  StreamObserver<DeleteRideRequestResponse> responseObserver) {
+        String rideRequestId = request.getRideRequestId();
+        DeleteRideRequestResponse.Builder builder = DeleteRideRequestResponse.newBuilder();
+        try {
+            rideRequestRepository.deleteById(rideRequestId);
+            builder.setSuccess(true).setMessage("Ride request deleted");
+        } catch (Exception e) {
+            builder.setSuccess(false).setMessage(e.getMessage());
+        }
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
 }
 

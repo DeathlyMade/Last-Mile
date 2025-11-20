@@ -37,94 +37,11 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
   const [availableSeats, setAvailableSeats] = useState(4);
 
   useEffect(() => {
-    // Load mock trips with rider ratings
-    const mockTrips = [
-      {
-        id: 't1',
-        riderId: 'r1',
-        riderName: 'Sarah Johnson',
-        riderRating: 4.8,
-        pickupStation: 'Central Station',
-        destination: 'Sector 62, Noida',
-        status: 'scheduled',
-        pickupTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        fare: 150,
-      },
-      {
-        id: 't2',
-        riderId: 'r2',
-        riderName: 'Mike Chen',
-        riderRating: 4.5,
-        pickupStation: 'Rajiv Chowk',
-        destination: 'Greater Kailash',
-        status: 'active',
-        pickupTime: new Date(Date.now() - 900000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        fare: 120,
-      },
-    ];
-    setTrips(mockTrips);
-
-    // Load ride history
-    const mockHistory = [
-      {
-        id: 'h1',
-        date: '2024-11-18',
-        riderName: 'Alex Kumar',
-        destination: 'Dwarka Sector 10',
-        fare: 180,
-        rating: 5,
-        duration: '25 min',
-      },
-      {
-        id: 'h2',
-        date: '2024-11-18',
-        riderName: 'Priya Sharma',
-        destination: 'Sarita Vihar',
-        fare: 140,
-        rating: 4,
-        duration: '20 min',
-      },
-      {
-        id: 'h3',
-        date: '2024-11-17',
-        riderName: 'David Lee',
-        destination: 'Green Park',
-        fare: 100,
-        rating: 5,
-        duration: '15 min',
-      },
-      {
-        id: 'h4',
-        date: '2024-11-17',
-        riderName: 'Anita Patel',
-        destination: 'Lajpat Nagar',
-        fare: 160,
-        rating: 4,
-        duration: '22 min',
-      },
-      {
-        id: 'h5',
-        date: '2024-11-16',
-        riderName: 'Raj Malhotra',
-        destination: 'Defence Colony',
-        fare: 130,
-        rating: 5,
-        duration: '18 min',
-      },
-    ];
-    setRideHistory(mockHistory);
-
-    // Calculate total earnings
-    const total = mockHistory.reduce((sum, ride) => sum + ride.fare, 0);
-    setTotalEarnings(total);
-
-    // Load profile picture from localStorage
+    // Load profile picture from localStorage (UI-only)
     const savedPicture = localStorage.getItem('profilePicture_' + user.name);
-    if (savedPicture) {
-      setProfilePicture(savedPicture);
-    }
+    if (savedPicture) setProfilePicture(savedPicture);
 
-    // Get current location from browser (mock for demo)
+    // Get current location from browser
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -134,12 +51,71 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
           });
         },
         () => {
-          // Use default location if geolocation fails
           toast.info('Using default location. Enable location services for accurate positioning.');
         }
       );
     }
-  }, [user.name]);
+
+    // Fetch dashboard from backend to hydrate state
+    const fetchDashboard = async () => {
+      try {
+        const { data } = await driverApi.getDashboard(user.id);
+        if (data?.success) {
+          // Rating & earnings
+          if (typeof data.driverRating === 'number') setDriverRating(data.driverRating);
+          if (typeof data.totalEarnings === 'number') setTotalEarnings(data.totalEarnings);
+
+          // Active trips -> trips state (match UI shape)
+          const active = Array.isArray(data.activeTrips) ? data.activeTrips.map((t: any) => ({
+            id: t.tripId,
+            riderId: '',
+            riderName: t.riderName,
+            riderRating: t.riderRating,
+            pickupStation: t.pickupStation,
+            destination: t.destination,
+            status: t.status,
+            pickupTime: t.pickupTimestamp ? new Date(t.pickupTimestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '',
+            fare: t.fare,
+          })) : [];
+          setTrips(active);
+
+          // Ride history -> UI shape
+          const history = Array.isArray(data.rideHistory) ? data.rideHistory.map((r: any) => ({
+            id: r.tripId,
+            date: r.date,
+            riderName: r.riderName,
+            destination: r.destination,
+            fare: r.fare,
+            rating: r.ratingGiven,
+            duration: r.pickupTimestamp && r.dropoffTimestamp ?
+              Math.max(1, Math.round((r.dropoffTimestamp - r.pickupTimestamp) / 60000)) + ' min' : '—',
+          })) : [];
+          setRideHistory(history);
+
+          // Route meta
+          if (data.destination) setDestination(data.destination);
+          if (typeof data.availableSeats === 'number') setAvailableSeats(data.availableSeats);
+          if (data.destination) setActiveRoute({
+            id: 'route_from_backend',
+            driverId: user.id,
+            currentLocation: data.currentLocation ? { latitude: data.currentLocation.latitude, longitude: data.currentLocation.longitude } : currentLocation,
+            destination: data.destination,
+            destinationCoords: destinationCoords,
+            availableSeats: data.availableSeats || availableSeats,
+            departureTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          });
+        }
+      } catch (e) {
+        // keep UI usable without backend data
+      }
+    };
+
+    fetchDashboard();
+
+    // Optional: refresh dashboard periodically
+    const id = setInterval(fetchDashboard, 30000);
+    return () => clearInterval(id);
+  }, [user.id, user.name]);
 
   const handleRegisterRoute = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,7 +128,15 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
     try {
       const currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
       
-      // In production, call driverApi.registerRoute
+      // Persist route in backend
+      await driverApi.registerRoute({
+        driver_id: user.id,
+        origin_station: '',
+        destination,
+        available_seats: availableSeats,
+        metro_stations: [],
+      });
+
       const route = {
         id: 'route_' + Date.now(),
         driverId: user.id,
@@ -179,15 +163,22 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
       clearInterval(locationUpdateInterval);
     }
 
-    const interval = setInterval(() => {
-      // Simulate location movement towards destination
+    const interval = setInterval(async () => {
+      // Simulate movement
       setCurrentLocation(prev => ({
         latitude: prev.latitude + (Math.random() - 0.5) * 0.001,
         longitude: prev.longitude + (Math.random() - 0.5) * 0.001,
       }));
 
-      // In production, call locationApi.updateLocation
-    }, 10000); // Update every 10 seconds
+      // Persist to backend services
+      try {
+        const { latitude, longitude } = currentLocation;
+        await driverApi.updateLocation(user.id, { driver_id: user.id, latitude, longitude });
+        await locationApi.updateLocation(user.id, { latitude, longitude });
+      } catch {
+        // ignore transient errors
+      }
+    }, 10000); // 10s
 
     setLocationUpdateInterval(interval);
   };
