@@ -8,8 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { MapPin, Clock, Car, Plus, CheckCircle2, XCircle, Loader2, Navigation, Star, Phone } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-import { mockStations } from '../lib/mockData';
-import { riderApi, matchingApi } from '../lib/api';
+import { riderApi, matchingApi, stationApi, tripApi, driverApi } from '../lib/api';
 import { MapView } from './MapView';
 import { RatingDialog } from './RatingDialog';
 import { LocationSearch } from './LocationSearch';
@@ -33,36 +32,68 @@ export function RiderDashboard({ user }: RiderDashboardProps) {
   const [destinationCoords, setDestinationCoords] = useState<any>(null);
   const [arrivalTime, setArrivalTime] = useState('');
   const [matching, setMatching] = useState(false);
+  const [stations, setStations] = useState<any[]>([]);
+
+  // Format arrival time to IST-friendly display.
+  const formatArrivalTimeIST = (value: any) => {
+    if (value === null || value === undefined) return '-';
+    const isNumericString = typeof value === 'string' && /^\d+$/.test(value);
+    const epoch = typeof value === 'number' ? value : (isNumericString ? Number(value) : NaN);
+    if (Number.isFinite(epoch)) {
+      const d = new Date(epoch * 1000);
+      return d.toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+    }
+    // If it's already a formatted string like HH:mm, show as-is
+    return String(value);
+  };
+
+  // Backend persistence: fetch rides for this rider on mount
 
   useEffect(() => {
-    // Load mock rides
-    const mockRides = [
-      {
-        id: 'rr1',
-        riderId: user.id,
-        metroStation: 'Central Station',
-        destination: 'Sector 62, Noida',
-        destinationCoords: { latitude: 28.6200, longitude: 77.3700 },
-        arrivalTime: '08:30 AM',
-        status: 'matched',
-        driver: {
-          id: 'd1',
-          name: 'John Driver',
-          vehicle: 'Honda City - DL 01 AB 1234',
-          rating: 4.8,
-          phone: '+91 98765 43210',
-          currentLocation: { latitude: 28.6100, longitude: 77.2200 },
-        },
-        fare: 150,
-      },
-    ];
-    setRides(mockRides);
-    
-    // Set active ride if exists
-    const active = mockRides.find(r => r.status === 'matched' || r.status === 'active');
-    if (active) {
-      setActiveRide(active);
-    }
+    // Load stations from backend
+    stationApi.getAllStations()
+      .then(({ data }) => {
+        const items = Array.isArray(data?.stations) ? data.stations.map((s: any) => ({
+          id: s.station_id,
+          name: s.name,
+          metroLine: s.line,
+        })) : [];
+        setStations(items);
+      })
+      .catch(() => setStations([]));
+
+    // Fetch ride requests for this rider from backend
+    riderApi.listRideRequests(user.id)
+      .then(({ data }) => {
+        const arr = Array.isArray(data?.ride_requests) ? data.ride_requests : (Array.isArray(data?.rideRequests) ? data.rideRequests : []);
+        const items = arr.map((rr: any) => ({
+              id: rr.ride_request_id || rr.rideRequestId,
+              riderId: rr.rider_id || rr.riderId,
+              metroStation: rr.metro_station || rr.metroStation,
+              destination: rr.destination,
+              destinationCoords: undefined,
+              arrivalTime: rr.arrival_time || rr.arrivalTime,
+              status: (rr.status === 0 || rr.status === 'PENDING') ? 'pending' :
+                      (rr.status === 1 || rr.status === 'MATCHED') ? 'matched' :
+                      (rr.status === 2 || rr.status === 'IN_PROGRESS') ? 'active' :
+                      (rr.status === 3 || rr.status === 'COMPLETED') ? 'completed' :
+                      (rr.status === 4 || rr.status === 'CANCELLED') ? 'cancelled' : 'pending',
+              fare: Math.floor(Math.random() * 100) + 100,
+              tripId: rr.trip_id || rr.tripId,
+            }))
+          ;
+        setRides(items);
+        if (items.length) {
+          const current = items.find(x => x.status === 'matched') || items.find(x => x.status === 'pending');
+          if (current) setActiveRide(current);
+        }
+      })
+      .catch(() => {});
   }, [user.id]);
 
   const handleRequestRide = async (e: React.FormEvent) => {
@@ -76,11 +107,37 @@ export function RiderDashboard({ user }: RiderDashboardProps) {
     setMatching(true);
 
     try {
-      // In production, call riderApi.registerRideRequest
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 1) Compute arrival time (fallback: now). Use epoch seconds, ensure valid.
+      const arrivalEpoch = (() => {
+        if (!arrivalTime) return Math.floor(Date.now() / 1000);
+        try {
+          const [hh, mm] = arrivalTime.split(':');
+          const d = new Date();
+          d.setSeconds(0, 0);
+          d.setHours(Number(hh), Number(mm));
+          const t = d.getTime();
+          if (Number.isNaN(t)) return Math.floor(Date.now() / 1000);
+          return Math.floor(t / 1000); // seconds
+        } catch {
+          return Math.floor(Date.now() / 1000);
+        }
+      })();
+      const reg = await riderApi.registerRideRequest({
+        rider_id: user.id,
+        metro_station: metroStation,
+        destination,
+        arrival_time: arrivalEpoch,
+      });
+      const respData = reg?.data || {};
+      console.debug('Ride request raw response', respData);
+      const ride_request_id = respData.ride_request_id || respData.rideRequestId;
+      if (!ride_request_id) {
+        toast.error(`Debug: ride request response keys => ${Object.keys(respData).join(', ') || 'NONE'}`);
+        throw new Error('No ride_request_id');
+      }
 
-      const newRide = {
-        id: 'rr_' + Date.now(),
+      const pendingRide = {
+        id: ride_request_id,
         riderId: user.id,
         metroStation,
         destination,
@@ -89,32 +146,67 @@ export function RiderDashboard({ user }: RiderDashboardProps) {
         status: 'pending',
         fare: Math.floor(Math.random() * 100) + 100,
       };
-
-      setRides(prev => [...prev, newRide]);
+      setRides(prev => ([...prev, pendingRide]));
+      // Surface the newly created request in the Current Ride panel
+      setActiveRide(pendingRide);
       setShowRequestDialog(false);
       toast.success('Ride request submitted! Matching with nearby drivers...');
 
-      // Simulate matching
-      setTimeout(() => {
-        const matchedRide = {
-          ...newRide,
-          status: 'matched',
-          driver: {
-            id: 'd_' + Date.now(),
-            name: 'Jane Driver',
-            vehicle: 'Toyota Camry - DL 02 CD 5678',
-            rating: 4.9,
-            phone: '+91 98765 12345',
-            currentLocation: { latitude: 28.6100, longitude: 77.2200 },
-          },
-        };
-        setRides(prev => prev.map(r => r.id === newRide.id ? matchedRide : r));
-        setActiveRide(matchedRide);
-        toast.success('Match found! Your driver is on the way.');
-      }, 3000);
+      // 2) Request matching
+      const matchResp = await matchingApi.matchRiderWithDriver({
+        ride_request_id,
+        rider_id: user.id,
+        metro_station: metroStation,
+        destination,
+        arrival_time: arrivalEpoch,
+      });
+      const matchId = matchResp?.data?.match_id || ride_request_id;
 
-    } catch (error) {
-      toast.error('Failed to request ride');
+      // 3) Poll match status until MATCHED
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        attempts++;
+        try {
+          const { data } = await matchingApi.getMatchStatus(matchId);
+          const statusVal = data?.status ?? data?.rideStatus;
+          if (data?.success && (statusVal === 'MATCHED' || statusVal === 1)) {
+            clearInterval(poll);
+            const driverId = data.driver_id || data.driverId;
+            const tripId = data.trip_id || data.tripId;
+            let driverInfo: any = null;
+            try { driverInfo = (await driverApi.getDriverInfo(driverId)).data; } catch {}
+
+            const matchedRide = {
+              ...pendingRide,
+              status: 'matched',
+              tripId,
+              driver: {
+                id: driverId,
+                name: `Driver ${driverId.substring(0, 5)}`,
+                vehicle: '—',
+                rating: 4.8,
+                phone: '',
+                currentLocation: driverInfo?.current_location ? {
+                  latitude: driverInfo.current_location.latitude,
+                  longitude: driverInfo.current_location.longitude,
+                } : undefined,
+              },
+            };
+            setRides(prev => prev.map(r => r.id === pendingRide.id ? matchedRide : r));
+            setActiveRide(matchedRide);
+            toast.success('Match found! Your driver is on the way.');
+          }
+        } catch {}
+        if (attempts > 15) { clearInterval(poll); toast.error('Unable to find a match right now.'); }
+      }, 2000);
+
+    } catch (error: any) {
+      const serverMsg = error?.response?.data?.message || error?.message;
+      // Provide extra debug when missing ID
+      if (serverMsg?.includes('No ride_request_id')) {
+        console.error('Ride request failure details', error?.response?.data || error);
+      }
+      toast.error(`Failed to request ride${serverMsg ? `: ${serverMsg}` : ''}`);
     } finally {
       setMatching(false);
     }
@@ -125,19 +217,28 @@ export function RiderDashboard({ user }: RiderDashboardProps) {
     toast.success('Ride accepted! You can track your driver on the map.');
   };
 
-  const handleEnterRide = () => {
+  const handleEnterRide = async () => {
     setInRide(true);
     if (activeRide) {
+      try {
+        if (activeRide.tripId) {
+          await tripApi.recordPickup(activeRide.tripId, { latitude: 0, longitude: 0 });
+        }
+      } catch {}
       setActiveRide(prev => ({ ...prev, status: 'active' }));
       toast.success('Ride started! Navigating to your destination.');
     }
   };
 
-  const handleCompleteRide = () => {
+  const handleCompleteRide = async () => {
     if (activeRide?.driver) {
+      try {
+        if (activeRide.tripId) {
+          await tripApi.recordDropoff(activeRide.tripId, { latitude: 0, longitude: 0 });
+        }
+      } catch {}
       setSelectedDriverForRating(activeRide.driver);
       setRatingDialogOpen(true);
-      
       setActiveRide(prev => ({ ...prev, status: 'completed' }));
       setRideAccepted(false);
       setInRide(false);
@@ -152,10 +253,8 @@ export function RiderDashboard({ user }: RiderDashboardProps) {
 
   const handleCancelRide = async (rideId: string) => {
     try {
-      // In production, call riderApi.cancelRideRequest
-      setRides(prev => prev.map(ride =>
-        ride.id === rideId ? { ...ride, status: 'cancelled' } : ride
-      ));
+      await riderApi.deleteRideRequest(rideId);
+      setRides(prev => prev.filter((ride: any) => ride.id !== rideId));
       if (activeRide?.id === rideId) {
         setActiveRide(null);
         setRideAccepted(false);
@@ -184,6 +283,59 @@ export function RiderDashboard({ user }: RiderDashboardProps) {
           <h1 className="text-3xl mb-2">Rider Dashboard</h1>
           <p className="text-gray-600">Book and track your rides</p>
         </div>
+
+        {/* Quick Booking Panel (inline instead of dialog) */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Book a Ride</CardTitle>
+            <CardDescription>Select pickup station and destination</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleRequestRide} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+              <div className="space-y-2">
+                <Label htmlFor="station">Pickup Station</Label>
+                <Select value={metroStation} onValueChange={setMetroStation} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select station" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stations.map((station) => (
+                      <SelectItem key={station.id} value={station.name}>
+                        {station.name} ({station.metroLine})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <LocationSearch
+                  value={destination}
+                  onChange={(location, coords) => { setDestination(location); setDestinationCoords(coords); }}
+                  label="Destination"
+                  placeholder="Search destination..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="arrival">Arrival Time (at station)</Label>
+                <Input
+                  id="arrival"
+                  type="time"
+                  value={arrivalTime}
+                  onChange={(e) => setArrivalTime(e.target.value)}
+                  required
+                />
+                <Button type="submit" disabled={matching || !metroStation || !destination} className="w-full mt-2">
+                  {matching ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Matching...</>
+                  ) : 'Request Ride'}
+                </Button>
+              </div>
+            </form>
+            {matching && (
+              <p className="text-xs text-blue-600 mt-3">Attempting to find a driver for your route...</p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
@@ -248,71 +400,7 @@ export function RiderDashboard({ user }: RiderDashboardProps) {
                     <CardTitle>Current Ride</CardTitle>
                     <CardDescription>Your active or upcoming ride</CardDescription>
                   </div>
-                  {!activeRide && (
-                    <Dialog open={showRequestDialog} onOpenChange={setShowRequestDialog}>
-                      <DialogTrigger asChild>
-                        <Button>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Request Ride
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-lg">
-                        <DialogHeader>
-                          <DialogTitle>Request a Ride</DialogTitle>
-                          <DialogDescription>Enter your pickup and destination details</DialogDescription>
-                        </DialogHeader>
-                        <form onSubmit={handleRequestRide} className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="station">Metro Station (Pickup Point)</Label>
-                            <Select value={metroStation} onValueChange={setMetroStation} required>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select your metro station" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {mockStations.map((station) => (
-                                  <SelectItem key={station.id} value={station.name}>
-                                    {station.name} ({station.metroLine})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <LocationSearch
-                            value={destination}
-                            onChange={(location, coords) => {
-                              setDestination(location);
-                              setDestinationCoords(coords);
-                            }}
-                            label="Destination"
-                            placeholder="Search destination on map..."
-                          />
-
-                          <div className="space-y-2">
-                            <Label htmlFor="arrival">Arrival Time at Station</Label>
-                            <Input
-                              id="arrival"
-                              type="time"
-                              value={arrivalTime}
-                              onChange={(e) => setArrivalTime(e.target.value)}
-                              required
-                            />
-                          </div>
-
-                          <Button type="submit" className="w-full" disabled={matching}>
-                            {matching ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Finding Match...
-                              </>
-                            ) : (
-                              'Request Ride'
-                            )}
-                          </Button>
-                        </form>
-                      </DialogContent>
-                    </Dialog>
-                  )}
+                  {/* Dialog removed: inline booking panel above */}
                 </div>
               </CardHeader>
               <CardContent>
@@ -422,6 +510,35 @@ export function RiderDashboard({ user }: RiderDashboardProps) {
               </CardContent>
             </Card>
 
+            {/* Pending Requests */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Pending Requests</CardTitle>
+                <CardDescription>Awaiting driver match</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {rides.filter(r => r.status === 'pending').length === 0 ? (
+                  <p className="text-sm text-gray-500">No pending requests</p>
+                ) : (
+                  <div className="space-y-3">
+                    {rides.filter(r => r.status === 'pending').map((ride) => (
+                      <div key={ride.id} className="border rounded-lg p-3 flex items-center justify-between">
+                        <div className="min-w-0">
+                          <p className="truncate"><span className="text-gray-600">Pickup:</span> {ride.metroStation}</p>
+                          <p className="truncate"><span className="text-gray-600">Destination:</span> {ride.destination}</p>
+                          <p className="text-xs text-gray-500">ETA at station: {formatArrivalTimeIST(ride.arrivalTime)}</p>
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          <Badge className="bg-yellow-500">PENDING</Badge>
+                          <Button variant="destructive" size="sm" onClick={() => handleCancelRide(ride.id)}>Cancel</Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Map View */}
             {activeRide && rideAccepted && (
               <Card>
@@ -463,7 +580,7 @@ export function RiderDashboard({ user }: RiderDashboardProps) {
                       <div className="flex items-center justify-between text-sm text-gray-600">
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4" />
-                          <span>{ride.arrivalTime}</span>
+                          <span>{formatArrivalTimeIST(ride.arrivalTime)}</span>
                         </div>
                         {ride.fare && <span>₹{ride.fare}</span>}
                       </div>

@@ -48,6 +48,7 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
   const [availableSeats, setAvailableSeats] = useState(4);
 
   useEffect(() => {
+<<<<<<< HEAD
     // Load mock trips
     const mockTrips = [
       {
@@ -103,10 +104,11 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
     setTotalEarnings(total);
 
     // Load profile picture from localStorage
+=======
+    // Load profile picture from localStorage (UI-only)
+>>>>>>> efa8500968af7cd3c832948ed6130c9124cee04d
     const savedPicture = localStorage.getItem('profilePicture_' + user.name);
-    if (savedPicture) {
-      setProfilePicture(savedPicture);
-    }
+    if (savedPicture) setProfilePicture(savedPicture);
 
     // Get current location from browser
     if (navigator.geolocation) {
@@ -123,7 +125,67 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
         }
       );
     }
-  }, [user.name]);
+
+    // Fetch dashboard from backend to hydrate state
+    const fetchDashboard = async () => {
+      try {
+        const { data } = await driverApi.getDashboard(user.id);
+        if (data?.success) {
+          // Rating & earnings
+          if (typeof data.driverRating === 'number') setDriverRating(data.driverRating);
+          if (typeof data.totalEarnings === 'number') setTotalEarnings(data.totalEarnings);
+
+          // Active trips -> trips state (match UI shape)
+          const active = Array.isArray(data.activeTrips) ? data.activeTrips.map((t: any) => ({
+            id: t.tripId,
+            riderId: '',
+            riderName: t.riderName,
+            riderRating: t.riderRating,
+            pickupStation: t.pickupStation,
+            destination: t.destination,
+            status: t.status,
+            pickupTime: t.pickupTimestamp ? new Date(t.pickupTimestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '',
+            fare: t.fare,
+          })) : [];
+          setTrips(active);
+
+          // Ride history -> UI shape
+          const history = Array.isArray(data.rideHistory) ? data.rideHistory.map((r: any) => ({
+            id: r.tripId,
+            date: r.date,
+            riderName: r.riderName,
+            destination: r.destination,
+            fare: r.fare,
+            rating: r.ratingGiven,
+            duration: r.pickupTimestamp && r.dropoffTimestamp ?
+              Math.max(1, Math.round((r.dropoffTimestamp - r.pickupTimestamp) / 60000)) + ' min' : '—',
+          })) : [];
+          setRideHistory(history);
+
+          // Route meta
+          if (data.destination) setDestination(data.destination);
+          if (typeof data.availableSeats === 'number') setAvailableSeats(data.availableSeats);
+          if (data.destination) setActiveRoute({
+            id: 'route_from_backend',
+            driverId: user.id,
+            currentLocation: data.currentLocation ? { latitude: data.currentLocation.latitude, longitude: data.currentLocation.longitude } : currentLocation,
+            destination: data.destination,
+            destinationCoords: destinationCoords,
+            availableSeats: data.availableSeats || availableSeats,
+            departureTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          });
+        }
+      } catch (e) {
+        // keep UI usable without backend data
+      }
+    };
+
+    fetchDashboard();
+
+    // Optional: refresh dashboard periodically
+    const id = setInterval(fetchDashboard, 30000);
+    return () => clearInterval(id);
+  }, [user.id, user.name]);
 
   const handleRegisterRoute = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,6 +198,18 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
     try {
       const currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
       
+<<<<<<< HEAD
+=======
+      // Persist route in backend
+      await driverApi.registerRoute({
+        driver_id: user.id,
+        origin_station: '',
+        destination,
+        available_seats: availableSeats,
+        metro_stations: [],
+      });
+
+>>>>>>> efa8500968af7cd3c832948ed6130c9124cee04d
       const route = {
         id: 'route_' + Date.now(),
         driverId: user.id,
@@ -161,13 +235,31 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
       clearInterval(locationUpdateInterval);
     }
 
+<<<<<<< HEAD
     const interval = setInterval(() => {
       // FIX: Update using lat/lng logic
+=======
+    const interval = setInterval(async () => {
+      // Simulate movement
+>>>>>>> efa8500968af7cd3c832948ed6130c9124cee04d
       setCurrentLocation(prev => ({
         lat: prev.lat + (Math.random() - 0.5) * 0.001,
         lng: prev.lng + (Math.random() - 0.5) * 0.001,
       }));
+<<<<<<< HEAD
     }, 10000); 
+=======
+
+      // Persist to backend services
+      try {
+        const { latitude, longitude } = currentLocation;
+        await driverApi.updateLocation(user.id, { driver_id: user.id, latitude, longitude });
+        await locationApi.updateLocation(user.id, { latitude, longitude });
+      } catch {
+        // ignore transient errors
+      }
+    }, 10000); // 10s
+>>>>>>> efa8500968af7cd3c832948ed6130c9124cee04d
 
     setLocationUpdateInterval(interval);
   };

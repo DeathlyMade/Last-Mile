@@ -104,6 +104,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                     .setDriverId(matchInfo.getDriverId())
                     .setRiderId(matchInfo.getRiderId())
                     .setStatus(matchInfo.getStatus())
+                    .setTripId(matchInfo.getTripId() != null ? matchInfo.getTripId() : "")
                     .setSuccess(true);
         } else {
             responseBuilder.setSuccess(false);

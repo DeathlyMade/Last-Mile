@@ -48,7 +48,8 @@ message GetMatchStatusResponse {
   string driver_id = 2;
   string rider_id = 3;
   MatchStatus status = 4;
-  bool success = 5;
+  string trip_id = 5; // newly added so rider can fetch trip
+  bool success = 6;
 }
 
 enum MatchStatus {

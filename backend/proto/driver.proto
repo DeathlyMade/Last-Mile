@@ -35,6 +35,14 @@ service DriverService {
     };
   };
   rpc ListDrivers(ListDriversRequest) returns (ListDriversResponse);
+  // Aggregated dashboard info for driver
+  rpc GetDriverDashboard(GetDriverDashboardRequest) returns (GetDriverDashboardResponse) {
+    option (google.api.http) = { get: "/driver/dashboard/{driver_id}" };
+  };
+  // Driver rates rider after trip completion
+  rpc RateRider(RateRiderRequest) returns (RateRiderResponse) {
+    option (google.api.http) = { post: "/driver/{driver_id}/rate-rider" body: "*" };
+  };
 }
 
 message RegisterRouteRequest {
@@ -93,6 +101,61 @@ message ListDriversRequest {
 message ListDriversResponse {
   repeated string driver_ids = 1;
   bool success = 2;
+}
+
+// Trip information currently active or scheduled
+message TripInfo {
+  string trip_id = 1;
+  string rider_name = 2;
+  double rider_rating = 3; // snapshot of rider rating
+  string pickup_station = 4;
+  string destination = 5;
+  string status = 6; // scheduled | active | completed
+  int32 fare = 7;
+  int64 pickup_timestamp = 8; // epoch ms
+}
+
+// Completed ride history item
+message RideHistoryItem {
+  string trip_id = 1;
+  string date = 2; // YYYY-MM-DD
+  string rider_name = 3;
+  string destination = 4;
+  int32 fare = 5;
+  int32 rating_given = 6; // driver -> rider rating 1-5
+  int64 pickup_timestamp = 7;
+  int64 dropoff_timestamp = 8;
+}
+
+message GetDriverDashboardRequest { string driver_id = 1; }
+
+message GetDriverDashboardResponse {
+  bool success = 1;
+  string driver_id = 2;
+  double driver_rating = 3;
+  int32 total_earnings = 4;
+  int32 today_earnings = 5;
+  int32 yesterday_earnings = 6;
+  repeated TripInfo active_trips = 7;
+  repeated RideHistoryItem ride_history = 8;
+  string origin_station = 9;
+  string destination = 10;
+  int32 available_seats = 11;
+  repeated string metro_stations = 12;
+  Location current_location = 13;
+  bool is_picking_up = 14;
+}
+
+message RateRiderRequest {
+  string driver_id = 1;
+  string trip_id = 2;
+  int32 rating = 3; // 1-5
+  string feedback = 4; // optional future use
+}
+
+message RateRiderResponse {
+  bool success = 1;
+  string message = 2;
 }
 
 message Location {
