@@ -16,6 +16,16 @@ import { driverApi, locationApi } from '../lib/api';
 // Define libraries outside component to prevent re-renders
 const libraries: ("places")[] = ["places"];
 
+// Mock APIs (replace with your actual imports)
+const driverApi = {
+  getDashboard: async (id: any) => ({ data: { success: true } }),
+  registerRoute: async (data: any) => {},
+  updateLocation: async (id: any, data: any) => {}
+};
+const locationApi = {
+  updateLocation: async (id: any, data: any) => {}
+};
+
 interface DriverDashboardProps {
   user: any;
 }
