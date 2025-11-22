@@ -31,15 +31,16 @@ export const PlaceSearchBox = ({
   placeholder: string;
   onPlaceSelect: (place: { coords: LatLng; address: string }) => void;
 }) => {
-  const inputRef = useRef<HTMLDivElement>(null);
+  const inputContainerRef = useRef<HTMLDivElement>(null);
+  // Keep track if we've already appended the element to prevent duplicates
+  const autocompleteRef = useRef<any>(null);
 
   useEffect(() => {
+    if (!inputContainerRef.current || !window.google) return;
+
     let active = true;
 
     const init = async () => {
-      // Ensure google object exists (script loaded by parent)
-      if (!window.google) return;
-
       // Import the NEW Places Library
       // @ts-ignore: Types might be missing for beta API
       const { PlaceAutocompleteElement } = (await google.maps.importLibrary(
@@ -48,46 +49,77 @@ export const PlaceSearchBox = ({
 
       if (!active) return;
 
-      // Create the element
-      const autocomplete = new PlaceAutocompleteElement();
-      autocomplete.placeholder = placeholder;
+      // Only create the element once
+      if (!autocompleteRef.current) {
+        const autocomplete = new PlaceAutocompleteElement();
+        autocomplete.placeholder = placeholder;
+        autocompleteRef.current = autocomplete;
 
-      // Add Tailwind classes to the container to match Shadcn Input style
-      autocomplete.classList.add(
-        "flex",
-        "h-10",
-        "w-full",
-        "rounded-md",
-        "border",
-        "border-input",
-        "bg-background",
-        "px-3",
-        "py-2",
-        "text-sm"
-      );
-
-      // Listen for the new API event
-      autocomplete.addEventListener("gmp-placeselect", async ({ place }: any) => {
-        // Fetch the specific fields we need
-        await place.fetchFields({
-          fields: ["displayName", "formattedAddress", "location"],
+        // --- STYLING FIX ---
+        // Apply classes for width/border
+        autocomplete.classList.add(
+          "w-full",
+          "h-10",
+          "rounded-md",
+          "border",
+          "border-input",
+          "bg-white", // Force white background on the input itself
+          "text-black" // Force black text on the input itself
+        );
+        
+        // Apply inline styles to the Custom Element to force CSS Variables
+        // This fixes the black dropdown issue by overriding Shadow DOM variables
+        Object.assign(autocomplete.style, {
+            width: '100%',
+            height: '40px',
+            backgroundColor: '#ffffff',
+            color: '#000000',
+            // Google Maps Web Component Variables
+            '--gmp-px-color-surface': '#ffffff', // Dropdown background
+            '--gmp-px-color-text-primary': '#000000', // Main text
+            '--gmp-px-color-text-secondary': '#4b5563', // Secondary text
+            '--gmp-px-color-text-suggestion-primary': '#000000',
+            '--gmp-px-color-text-suggestion-secondary': '#4b5563',
+            '--gmp-px-color-separator': '#e5e7eb',
         });
 
-        const location = place.location;
-        const address = place.formattedAddress || place.displayName;
+        // --- SELECTION LOGIC FIX ---
+        // --- SELECTION LOGIC FIX ---
+      autocomplete.addEventListener("gmp-select", async ({ placePrediction }) => {
+        const place = placePrediction.toPlace();
+        if (!place) {
+          console.warn("No place selected or event data is missing.");
+          return;
+        }
 
-        if (location) {
-          onPlaceSelect({
-            coords: { lat: location.lat(), lng: location.lng() },
-            address: address,
+        try {
+          // Fetch fields explicitly in the new API
+          await place.fetchFields({
+            fields: ["displayName", "formattedAddress", "location"],
           });
+
+          const location = place.location;
+          let name = place.displayName;
+          if (typeof name === "object" && name !== null && "text" in name) {
+            name = name.text;
+          }
+
+          const address = place.formattedAddress || name || "Selected Location";
+
+          if (location) {
+            // Trigger parent update immediately
+            onPlaceSelect({
+              coords: { lat: location.lat(), lng: location.lng() },
+              address: address,
+            });
+          }
+        } catch (err) {
+          console.error("Error fetching place details:", err);
         }
       });
 
-      // Mount to DOM
-      if (inputRef.current) {
-        inputRef.current.innerHTML = "";
-        inputRef.current.appendChild(autocomplete);
+        // Append to the DOM
+        inputContainerRef.current.appendChild(autocomplete);
       }
     };
 
@@ -96,9 +128,9 @@ export const PlaceSearchBox = ({
     return () => {
       active = false;
     };
-  }, [onPlaceSelect, placeholder]);
+  }, [placeholder]); // Removed onPlaceSelect from deps to avoid re-init
 
-  return <div ref={inputRef} className="w-full" />;
+  return <div ref={inputContainerRef} className="w-full text-black" />;
 };
 
 // ----------------------------------------------------------------------

@@ -50,7 +50,7 @@ public class UserGrpcService extends UserServiceGrpc.UserServiceImplBase {
                 user = userRepository.save(user);
                 
                 String token = UUID.randomUUID().toString();
-                redisTemplate.opsForValue().set("token:" + token, user.getUserId(), 1, TimeUnit.HOURS);
+                redisTemplate.opsForValue().set("token:" + token, user.getUserId(), 30, TimeUnit.SECONDS);
                 
                 responseBuilder.setUserId(user.getUserId())
                         .setToken(token)
@@ -82,7 +82,7 @@ public class UserGrpcService extends UserServiceGrpc.UserServiceImplBase {
             } else {
                 User user = userOpt.get();
                 String token = UUID.randomUUID().toString();
-                redisTemplate.opsForValue().set("token:" + token, user.getUserId(), 1, TimeUnit.HOURS);
+                redisTemplate.opsForValue().set("token:" + token, user.getUserId(), 30, TimeUnit.SECONDS);
                 
                 responseBuilder.setUserId(user.getUserId())
                         .setToken(token)

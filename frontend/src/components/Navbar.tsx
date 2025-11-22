@@ -9,16 +9,7 @@ interface NavbarProps {
 
 export function Navbar({ user, onLogout }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [profilePicture, setProfilePicture] = useState('');
-
-  useEffect(() => {
-    if (user) {
-      const savedPicture = localStorage.getItem('profilePicture_' + user.name);
-      if (savedPicture) {
-        setProfilePicture(savedPicture);
-      }
-    }
-  }, [user]);
+  // Removed profile picture upload & persistence; using initial avatar only.
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
@@ -42,17 +33,9 @@ export function Navbar({ user, onLogout }: NavbarProps) {
                     <p className="text-sm">{user.name}</p>
                     <p className="text-xs text-gray-500 capitalize">{user.role}</p>
                   </div>
-                  {profilePicture ? (
-                    <img
-                      src={profilePicture}
-                      alt={user.name}
-                      className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white">
-                      {user.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
                 </div>
                 <Button onClick={onLogout} variant="outline" size="sm">
                   <LogOut className="h-4 w-4 mr-2" />
@@ -79,17 +62,9 @@ export function Navbar({ user, onLogout }: NavbarProps) {
           <div className="md:hidden py-4 border-t">
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3 px-2">
-                {profilePicture ? (
-                  <img
-                    src={profilePicture}
-                    alt={user.name}
-                    className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
-                  />
-                ) : (
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white">
-                    {user.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
                 <div>
                   <p className="text-sm">{user.name}</p>
                   <p className="text-xs text-gray-500 capitalize">{user.role}</p>

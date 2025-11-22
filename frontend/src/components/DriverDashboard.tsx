@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -9,9 +9,9 @@ import { MapPin, Users, CheckCircle2, Plus, Activity, DollarSign, Star, Clock } 
 import { toast } from 'sonner';
 import { MapView, PlaceSearchBox } from './MapView'; 
 import { RatingDialog } from './RatingDialog';
-import { ProfilePictureUpload } from './ProfilePictureUpload';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { useLoadScript } from '@react-google-maps/api';
+import { driverApi, locationApi } from '../lib/api';
 
 // Define libraries outside component to prevent re-renders
 const libraries: ("places")[] = ["places"];
@@ -21,6 +21,8 @@ interface DriverDashboardProps {
 }
 
 export function DriverDashboard({ user }: DriverDashboardProps) {
+  // Persist route locally to restore after reload if backend does not yet return coordinates
+  const ROUTE_STORAGE_KEY = `driver_active_route_${user.id}`;
   // Load Google Maps Script at the top level
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: import.meta.env.VITE_APP_GOOGLE_MAPS_API_KEY || "",
@@ -29,8 +31,9 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
 
   const [activeRoute, setActiveRoute] = useState<any>(null);
   
-  // FIX: Changed state to use 'lat' and 'lng' to match Google Maps requirements
   const [currentLocation, setCurrentLocation] = useState({ lat: 28.6139, lng: 77.2090 });
+  const [isLocationResolved, setIsLocationResolved] = useState(false);
+  const locationIntervalRef = useRef<any>(null);
   
   const [trips, setTrips] = useState<any[]>([]);
   const [rideHistory, setRideHistory] = useState<any[]>([]);
@@ -38,7 +41,6 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
   const [locationUpdateInterval, setLocationUpdateInterval] = useState<any>(null);
   const [driverRating, setDriverRating] = useState(4.7);
   const [totalEarnings, setTotalEarnings] = useState(0);
-  const [profilePicture, setProfilePicture] = useState('');
   const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
   const [selectedRiderForRating, setSelectedRiderForRating] = useState<any>(null);
 
@@ -48,94 +50,31 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
   const [availableSeats, setAvailableSeats] = useState(4);
 
   useEffect(() => {
-<<<<<<< HEAD
-    // Load mock trips
-    const mockTrips = [
-      {
-        id: 't1',
-        riderId: 'r1',
-        riderName: 'Sarah Johnson',
-        riderRating: 4.8,
-        pickupStation: 'Central Station',
-        destination: 'Sector 62, Noida',
-        status: 'scheduled',
-        pickupTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        fare: 150,
-      },
-      {
-        id: 't2',
-        riderId: 'r2',
-        riderName: 'Mike Chen',
-        riderRating: 4.5,
-        pickupStation: 'Rajiv Chowk',
-        destination: 'Greater Kailash',
-        status: 'active',
-        pickupTime: new Date(Date.now() - 900000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        fare: 120,
-      },
-    ];
-    setTrips(mockTrips);
 
-    // Load ride history
-    const mockHistory = [
-      {
-        id: 'h1',
-        date: '2024-11-18',
-        riderName: 'Alex Kumar',
-        destination: 'Dwarka Sector 10',
-        fare: 180,
-        rating: 5,
-        duration: '25 min',
-      },
-      {
-        id: 'h2',
-        date: '2024-11-18',
-        riderName: 'Priya Sharma',
-        destination: 'Sarita Vihar',
-        fare: 140,
-        rating: 4,
-        duration: '20 min',
-      },
-    ];
-    setRideHistory(mockHistory);
-
-    // Calculate total earnings
-    const total = mockHistory.reduce((sum, ride) => sum + ride.fare, 0);
-    setTotalEarnings(total);
-
-    // Load profile picture from localStorage
-=======
-    // Load profile picture from localStorage (UI-only)
->>>>>>> efa8500968af7cd3c832948ed6130c9124cee04d
-    const savedPicture = localStorage.getItem('profilePicture_' + user.name);
-    if (savedPicture) setProfilePicture(savedPicture);
-
-    // Get current location from browser
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          // FIX: Map browser coordinates to lat/lng
-          setCurrentLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
-        },
-        () => {
-          toast.info('Using default location. Enable location services for accurate positioning.');
+    // Attempt to restore previously active route (with destination coords) before contacting backend
+    const storedRouteRaw = localStorage.getItem(ROUTE_STORAGE_KEY);
+    let restoredCoords: any = null;
+    if (storedRouteRaw) {
+      try {
+        const storedRoute = JSON.parse(storedRouteRaw);
+        if (storedRoute?.destination && storedRoute?.destinationCoords?.lat && storedRoute?.destinationCoords?.lng) {
+          restoredCoords = storedRoute.destinationCoords;
+          setActiveRoute(storedRoute);
+          setDestination(storedRoute.destination);
+          setDestinationCoords(storedRoute.destinationCoords);
+          setAvailableSeats(storedRoute.availableSeats || availableSeats);
         }
-      );
+      } catch { /* ignore corrupt storage */ }
     }
 
-    // Fetch dashboard from backend to hydrate state
+    // Fetch dashboard from backend to hydrate state (will trigger 401 redirect on expiry via axios interceptor)
     const fetchDashboard = async () => {
       try {
         const { data } = await driverApi.getDashboard(user.id);
         if (data?.success) {
-          // Rating & earnings
           if (typeof data.driverRating === 'number') setDriverRating(data.driverRating);
           if (typeof data.totalEarnings === 'number') setTotalEarnings(data.totalEarnings);
 
-          // Active trips -> trips state (match UI shape)
           const active = Array.isArray(data.activeTrips) ? data.activeTrips.map((t: any) => ({
             id: t.tripId,
             riderId: '',
@@ -149,7 +88,6 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
           })) : [];
           setTrips(active);
 
-          // Ride history -> UI shape
           const history = Array.isArray(data.rideHistory) ? data.rideHistory.map((r: any) => ({
             id: r.tripId,
             date: r.date,
@@ -162,45 +100,84 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
           })) : [];
           setRideHistory(history);
 
-          // Route meta
-          if (data.destination) setDestination(data.destination);
-          if (typeof data.availableSeats === 'number') setAvailableSeats(data.availableSeats);
-          if (data.destination) setActiveRoute({
-            id: 'route_from_backend',
-            driverId: user.id,
-            currentLocation: data.currentLocation ? { latitude: data.currentLocation.latitude, longitude: data.currentLocation.longitude } : currentLocation,
-            destination: data.destination,
-            destinationCoords: destinationCoords,
-            availableSeats: data.availableSeats || availableSeats,
-            departureTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          });
+          if (data.destination) {
+            setDestination(data.destination);
+            if (typeof data.availableSeats === 'number') setAvailableSeats(data.availableSeats);
+            // Prefer coords from restored route first, then current state, then existing activeRoute
+            const coords = restoredCoords || destinationCoords || activeRoute?.destinationCoords;
+            setActiveRoute({
+              id: 'route_from_backend',
+              driverId: user.id,
+              currentLocation: data.currentLocation ? { latitude: data.currentLocation.latitude, longitude: data.currentLocation.longitude } : currentLocation,
+              destination: data.destination,
+              destinationCoords: coords,
+              availableSeats: data.availableSeats || availableSeats,
+              departureTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            });
+          }
         }
       } catch (e) {
         // keep UI usable without backend data
       }
     };
 
-    fetchDashboard();
+    // Acquire geolocation first; only then fetch dashboard so initial route uses real origin
+    const startAfterGeo = () => {
+      fetchDashboard();
+      locationIntervalRef.current = setInterval(fetchDashboard, 30000);
+    };
 
-    // Optional: refresh dashboard periodically
-    const id = setInterval(fetchDashboard, 30000);
-    return () => clearInterval(id);
+    if (navigator.geolocation) {
+      let geoResolved = false;
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (geoResolved) return;
+          geoResolved = true;
+          setCurrentLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          setIsLocationResolved(true);
+          startAfterGeo();
+        },
+        () => {
+          if (geoResolved) return;
+          geoResolved = true;
+          toast.info('Using default location. Enable location services for accurate positioning.');
+          setIsLocationResolved(true);
+          startAfterGeo();
+        },
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+      // Fallback: if geolocation stalls beyond timeout, proceed anyway
+      setTimeout(() => {
+        if (!geoResolved) {
+          geoResolved = true;
+          setIsLocationResolved(true);
+          startAfterGeo();
+        }
+      }, 5500);
+    } else {
+      setIsLocationResolved(true);
+      startAfterGeo();
+    }
+    return () => {
+      if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
+    };
   }, [user.id, user.name]);
 
   const handleRegisterRoute = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!destination) {
-      toast.error('Please select a destination');
+    // Check if destination is valid
+    if (!destination || !destinationCoords) {
+      toast.error('Please select a valid destination from the list');
       return;
     }
 
     try {
       const currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
       
-<<<<<<< HEAD
-=======
-      // Persist route in backend
       await driverApi.registerRoute({
         driver_id: user.id,
         origin_station: '',
@@ -208,19 +185,71 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
         available_seats: availableSeats,
         metro_stations: [],
       });
-
->>>>>>> efa8500968af7cd3c832948ed6130c9124cee04d
-      const route = {
-        id: 'route_' + Date.now(),
-        driverId: user.id,
-        currentLocation: currentLocation,
-        destination: destination,
-        destinationCoords: destinationCoords,
-        availableSeats,
-        departureTime: currentTime,
-      };
-
-      setActiveRoute(route);
+      // Re-fetch dashboard to ensure persistence reflects backend state
+      try {
+        const { data: dash } = await driverApi.getDashboard(user.id);
+        if (dash?.destination) {
+          setActiveRoute({
+            id: 'route_from_backend',
+            driverId: user.id,
+            currentLocation: dash.currentLocation ? { latitude: dash.currentLocation.latitude, longitude: dash.currentLocation.longitude } : currentLocation,
+            destination: dash.destination,
+            destinationCoords: destinationCoords,
+            availableSeats: dash.availableSeats || availableSeats,
+            departureTime: currentTime,
+          });
+          // Persist updated route with coordinates
+          localStorage.setItem(ROUTE_STORAGE_KEY, JSON.stringify({
+            id: 'route_from_backend',
+            driverId: user.id,
+            currentLocation,
+            destination: dash.destination,
+            destinationCoords: destinationCoords,
+            availableSeats: dash.availableSeats || availableSeats,
+            departureTime: currentTime,
+          }));
+        } else {
+          // Fallback to local construction if backend doesn't yet return route
+          setActiveRoute({
+            id: 'route_' + Date.now(),
+            driverId: user.id,
+            currentLocation,
+            destination,
+            destinationCoords: destinationCoords,
+            availableSeats,
+            departureTime: currentTime,
+          });
+          localStorage.setItem(ROUTE_STORAGE_KEY, JSON.stringify({
+            id: 'route_' + Date.now(),
+            driverId: user.id,
+            currentLocation,
+            destination,
+            destinationCoords: destinationCoords,
+            availableSeats,
+            departureTime: currentTime,
+          }));
+        }
+      } catch {
+        // Fallback
+        setActiveRoute({
+          id: 'route_' + Date.now(),
+          driverId: user.id,
+          currentLocation,
+          destination,
+          destinationCoords: destinationCoords,
+          availableSeats,
+          departureTime: currentTime,
+        });
+        localStorage.setItem(ROUTE_STORAGE_KEY, JSON.stringify({
+          id: 'route_' + Date.now(),
+          driverId: user.id,
+          currentLocation,
+          destination,
+          destinationCoords: destinationCoords,
+          availableSeats,
+          departureTime: currentTime,
+        }));
+      }
       setShowRouteDialog(false);
       toast.success('Route registered successfully! Starting location updates...');
 
@@ -235,31 +264,20 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
       clearInterval(locationUpdateInterval);
     }
 
-<<<<<<< HEAD
-    const interval = setInterval(() => {
-      // FIX: Update using lat/lng logic
-=======
     const interval = setInterval(async () => {
-      // Simulate movement
->>>>>>> efa8500968af7cd3c832948ed6130c9124cee04d
       setCurrentLocation(prev => ({
         lat: prev.lat + (Math.random() - 0.5) * 0.001,
         lng: prev.lng + (Math.random() - 0.5) * 0.001,
       }));
-<<<<<<< HEAD
-    }, 10000); 
-=======
 
-      // Persist to backend services
       try {
-        const { latitude, longitude } = currentLocation;
-        await driverApi.updateLocation(user.id, { driver_id: user.id, latitude, longitude });
-        await locationApi.updateLocation(user.id, { latitude, longitude });
+        const { lat, lng } = currentLocation;
+        await driverApi.updateLocation(user.id, { driver_id: user.id, latitude: lat, longitude: lng });
+        await locationApi.updateLocation(user.id, { latitude: lat, longitude: lng });
       } catch {
-        // ignore transient errors
+        // ignore
       }
-    }, 10000); // 10s
->>>>>>> efa8500968af7cd3c832948ed6130c9124cee04d
+    }, 10000);
 
     setLocationUpdateInterval(interval);
   };
@@ -309,9 +327,7 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
     toast.success(`Thank you for rating ${selectedRiderForRating?.riderName}!`);
   };
 
-  const handleProfilePictureUpload = (imageUrl: string) => {
-    setProfilePicture(imageUrl);
-  };
+  // Profile picture upload removed; avatar will use initial only.
 
   const getTodayEarnings = () => {
     const today = new Date().toISOString().split('T')[0];
@@ -335,11 +351,9 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
         {/* Profile Header */}
         <div className="mb-8 bg-white rounded-lg shadow-sm p-6">
           <div className="flex items-center gap-6">
-            <ProfilePictureUpload
-              currentImage={profilePicture}
-              onUpload={handleProfilePictureUpload}
-              userName={user.name}
-            />
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-3xl font-semibold">
+              {user.name?.charAt(0).toUpperCase() || 'U'}
+            </div>
             <div className="flex-1">
               <h1 className="text-3xl mb-1">{user.name}</h1>
               <div className="flex items-center gap-4 text-gray-600">
@@ -433,7 +447,6 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
                           <p className="text-blue-900 mb-1">📍 Current Location</p>
                           <p className="text-blue-700 text-xs">
-                            {/* FIX: Display lat/lng */}
                             {currentLocation.lat?.toFixed(4)}, {currentLocation.lng?.toFixed(4)}
                           </p>
                           <p className="text-blue-600 text-xs mt-1">
@@ -448,6 +461,7 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
                             <PlaceSearchBox
                               placeholder="Search for destination..."
                               onPlaceSelect={(place) => {
+                                // Important: This updates the state required for handleRegisterRoute
                                 setDestination(place.address);
                                 setDestinationCoords(place.coords);
                               }}
@@ -477,12 +491,21 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
                 </div>
               </CardHeader>
               <CardContent>
-                <MapView
-                  isLoaded={isLoaded}
-                  currentLocation={currentLocation}
-                  destination={activeRoute ? { ...destinationCoords, name: destination } : undefined}
-                  showRoute={!!activeRoute}
-                />
+                {!isLocationResolved ? (
+                  <div className="h-[400px] flex items-center justify-center bg-gray-100 rounded-lg">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <p className="text-sm text-gray-500">Acquiring location...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <MapView
+                    isLoaded={isLoaded}
+                    currentLocation={currentLocation}
+                    destination={activeRoute ? { ...activeRoute.destinationCoords, name: activeRoute.destination } : undefined}
+                    showRoute={!!activeRoute}
+                  />
+                )}
                 {activeRoute && (
                   <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                     <div className="flex items-center justify-between">
