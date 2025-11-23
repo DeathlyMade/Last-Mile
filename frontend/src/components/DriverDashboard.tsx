@@ -11,29 +11,17 @@ import { MapView, PlaceSearchBox } from './MapView';
 import { RatingDialog } from './RatingDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { useLoadScript } from '@react-google-maps/api';
-import { driverApi, locationApi } from '../lib/api';
+import { driverApi, locationApi, riderApi } from '../lib/api';
 
 // Define libraries outside component to prevent re-renders
 const libraries: ("places")[] = ["places"];
-
-// Mock APIs (replace with your actual imports)
-const driverApi = {
-  getDashboard: async (id: any) => ({ data: { success: true } }),
-  registerRoute: async (data: any) => {},
-  updateLocation: async (id: any, data: any) => {}
-};
-const locationApi = {
-  updateLocation: async (id: any, data: any) => {}
-};
 
 interface DriverDashboardProps {
   user: any;
 }
 
 export function DriverDashboard({ user }: DriverDashboardProps) {
-  // Persist route locally to restore after reload if backend does not yet return coordinates
   const ROUTE_STORAGE_KEY = `driver_active_route_${user.id}`;
-  // Load Google Maps Script at the top level
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: import.meta.env.VITE_APP_GOOGLE_MAPS_API_KEY || "",
     libraries,
@@ -42,14 +30,14 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
   const [activeRoute, setActiveRoute] = useState<any>(null);
   
   const [currentLocation, setCurrentLocation] = useState({ lat: 28.6139, lng: 77.2090 });
-  const [isLocationResolved, setIsLocationResolved] = useState(false);
-  const locationIntervalRef = useRef<any>(null);
+  const [isLocationResolved, setIsLocationResolved] = useState(false); // to track if geolocation attempt completed for the user
+  const locationIntervalRef = useRef<any>(null); // This interval runs every 30 seconds to fetch new trips or requests from the backend.This interval runs every 30 seconds to fetch new trips or requests from the backend.
   
   const [trips, setTrips] = useState<any[]>([]);
   const [rideHistory, setRideHistory] = useState<any[]>([]);
   const [showRouteDialog, setShowRouteDialog] = useState(false);
-  const [locationUpdateInterval, setLocationUpdateInterval] = useState<any>(null);
-  const [driverRating, setDriverRating] = useState(4.7);
+  const [locationUpdateInterval, setLocationUpdateInterval] = useState<any>(null); // The Driver Location Broadcast loop. This interval runs every 10 seconds (after you click "Start Route") to send your GPS coordinates to the server.
+  const [driverRating, setDriverRating] = useState(5);
   const [totalEarnings, setTotalEarnings] = useState(0);
   const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
   const [selectedRiderForRating, setSelectedRiderForRating] = useState<any>(null);
@@ -61,7 +49,6 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
 
   useEffect(() => {
 
-    // Attempt to restore previously active route (with destination coords) before contacting backend
     const storedRouteRaw = localStorage.getItem(ROUTE_STORAGE_KEY);
     let restoredCoords: any = null;
     if (storedRouteRaw) {
@@ -77,7 +64,6 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
       } catch { /* ignore corrupt storage */ }
     }
 
-    // Fetch dashboard from backend to hydrate state (will trigger 401 redirect on expiry via axios interceptor)
     const fetchDashboard = async () => {
       try {
         const { data } = await driverApi.getDashboard(user.id);
@@ -87,7 +73,7 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
 
           const active = Array.isArray(data.activeTrips) ? data.activeTrips.map((t: any) => ({
             id: t.tripId,
-            riderId: '',
+            riderId: t.riderId || '', // Map riderId from backend
             riderName: t.riderName,
             riderRating: t.riderRating,
             pickupStation: t.pickupStation,
@@ -333,8 +319,36 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
     }
   };
 
-  const handleRateRider = (rating: number, feedback: string) => {
-    toast.success(`Thank you for rating ${selectedRiderForRating?.riderName}!`);
+  const handleRateRider = async (rating: number, feedback: string) => {
+    if (!selectedRiderForRating) return;
+
+    try {
+      // 1. Update Driver Service (Record that we gave a rating)
+      await driverApi.rateRider({
+        driverId: user.id,
+        tripId: selectedRiderForRating.id,
+        rating: rating,
+        feedback: feedback
+      });
+
+      // 2. Update Rider Service (Actually affect the rider's score)
+      // Note: We need the riderId. In the current trips mock/data, we need to ensure riderId is present.
+      // The trip object from getDashboard has riderName but might not have riderId if not mapped correctly.
+      // Assuming selectedRiderForRating has riderId (mapped in fetchDashboard).
+      if (selectedRiderForRating.riderId) {
+        await riderApi.rateRider({
+          riderId: selectedRiderForRating.riderId,
+          rating: rating
+        });
+      }
+
+      toast.success(`Rated ${selectedRiderForRating.riderName} successfully!`);
+    } catch (error) {
+      console.error("Rating error:", error);
+      // Even if one fails, we might want to show success if at least one worked, 
+      // or show a specific error. For now, generic error.
+      toast.error('Failed to submit rating completely. Please try again.');
+    }
   };
 
   // Profile picture upload removed; avatar will use initial only.

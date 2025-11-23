@@ -9,15 +9,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { MapPin, Clock, Car, Plus, CheckCircle2, XCircle, Loader2, Navigation, Star, Phone } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { riderApi, matchingApi, stationApi, tripApi, driverApi } from '../lib/api';
-import { MapView } from './MapView';
+import { MapView, PlaceSearchBox } from './MapView';
 import { RatingDialog } from './RatingDialog';
-import { LocationSearch } from './LocationSearch';
+import { useLoadScript } from '@react-google-maps/api';
+
+// Define libraries outside component to prevent re-renders
+const libraries: ("places")[] = ["places"];
 
 interface RiderDashboardProps {
   user: any;
 }
 
 export function RiderDashboard({ user }: RiderDashboardProps) {
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: import.meta.env.VITE_APP_GOOGLE_MAPS_API_KEY || "",
+    libraries,
+  });
+
   const [rides, setRides] = useState<any[]>([]);
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [activeRide, setActiveRide] = useState<any>(null);
@@ -307,12 +315,18 @@ export function RiderDashboard({ user }: RiderDashboardProps) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <LocationSearch
-                  value={destination}
-                  onChange={(location, coords) => { setDestination(location); setDestinationCoords(coords); }}
-                  label="Destination"
-                  placeholder="Search destination..."
-                />
+                <Label htmlFor="destination">Destination</Label>
+                {isLoaded ? (
+                  <PlaceSearchBox
+                    placeholder="Search destination..."
+                    onPlaceSelect={(place) => {
+                      setDestination(place.address);
+                      setDestinationCoords(place.coords);
+                    }}
+                  />
+                ) : (
+                  <Input disabled placeholder="Loading maps..." />
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="arrival">Arrival Time (at station)</Label>

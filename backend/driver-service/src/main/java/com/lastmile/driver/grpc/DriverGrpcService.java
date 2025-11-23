@@ -3,11 +3,14 @@ package com.lastmile.driver.grpc;
 import com.lastmile.driver.model.Driver;
 import com.lastmile.driver.proto.*;
 import com.lastmile.driver.repository.DriverRepository;
-import com.lastmile.station.proto.StationServiceGrpc;
 import io.grpc.stub.StreamObserver;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import net.devh.boot.grpc.server.service.GrpcService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -19,54 +22,23 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
     
     @Autowired
     private DriverRepository driverRepository;
-    
-    @GrpcClient("station-service")
-    private StationServiceGrpc.StationServiceBlockingStub stationStub;
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
     
     @Override
     public void registerRoute(RegisterRouteRequest request,
                              StreamObserver<RegisterRouteResponse> responseObserver) {
         String driverId = request.getDriverId();
-        String originStation = request.getOriginStation();
         String destination = request.getDestination();
         int availableSeats = request.getAvailableSeats();
         List<String> metroStations = new ArrayList<>(request.getMetroStationsList());
-        
-        List<String> routeStations = new ArrayList<>();
-        
-        try {
-            com.lastmile.station.proto.GetStationsAlongRouteRequest stationRequest =
-                    com.lastmile.station.proto.GetStationsAlongRouteRequest.newBuilder()
-                            .setOrigin(originStation)
-                            .setDestination(destination)
-                            .build();
-            
-            com.lastmile.station.proto.GetStationsAlongRouteResponse stationResponse =
-                    stationStub.getStationsAlongRoute(stationRequest);
-            
-            if (stationResponse.getSuccess()) {
-                for (com.lastmile.station.proto.Station station : stationResponse.getStationsList()) {
-                    routeStations.add(station.getStationId());
-                }
-            }
-        } catch (Exception e) {
-            if (!metroStations.isEmpty()) {
-                routeStations = metroStations;
-            }
-        }
-        
-        if (routeStations.isEmpty() && !metroStations.isEmpty()) {
-            routeStations = metroStations;
-        }
-        
-        Driver driver = new Driver();
+        Driver driver = driverRepository.findById(driverId).orElse(new Driver());
         driver.setDriverId(driverId);
         driver.setRouteId(UUID.randomUUID().toString());
-        driver.setOriginStation(originStation);
         driver.setDestination(destination);
         driver.setAvailableSeats(availableSeats);
-        driver.setMetroStations(routeStations);
-        driver.setPickingUp(false);
+        driver.setMetroStations(metroStations);
         
         driver = driverRepository.save(driver);
         
@@ -87,11 +59,16 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
         double latitude = request.getLatitude();
         double longitude = request.getLongitude();
         
-        Driver driver = driverRepository.findById(driverId)
-                .orElse(null);
+        Query query = new Query(Criteria.where("_id").is(driverId));
+        Update update = new Update()
+                .set("currentLocation.latitude", latitude)
+                .set("currentLocation.longitude", longitude)
+                .set("currentLocation.timestamp", System.currentTimeMillis());
         
-        if (driver == null) {
-            UpdateLocationResponse response = UpdateLocationResponse.newBuilder()
+        long modifiedCount = mongoTemplate.updateFirst(query, update, Driver.class).getModifiedCount();
+        
+        if (modifiedCount == 0 && !driverRepository.existsById(driverId)) {
+             UpdateLocationResponse response = UpdateLocationResponse.newBuilder()
                     .setSuccess(false)
                     .setMessage("Driver not found")
                     .build();
@@ -99,14 +76,6 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
             responseObserver.onCompleted();
             return;
         }
-        
-        Driver.Location location = new Driver.Location();
-        location.setLatitude(latitude);
-        location.setLongitude(longitude);
-        location.setTimestamp(System.currentTimeMillis());
-        driver.setCurrentLocation(location);
-        
-        driverRepository.save(driver);
         
         UpdateLocationResponse response = UpdateLocationResponse.newBuilder()
                 .setSuccess(true)
@@ -116,38 +85,36 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
-    
+
     @Override
-    public void updatePickupStatus(UpdatePickupStatusRequest request,
-                                  StreamObserver<UpdatePickupStatusResponse> responseObserver) {
+    public void addTrip(AddTripRequest request, StreamObserver<AddTripResponse> responseObserver) {
         String driverId = request.getDriverId();
-        boolean isPickingUp = request.getIsPickingUp();
         
-        Driver driver = driverRepository.findById(driverId)
-                .orElse(null);
+        Driver.TripRecord record = new Driver.TripRecord();
+        record.setTripId(request.getTripId());
+        record.setRiderId(request.getRiderId());
+        record.setRiderName(request.getRiderName());
+        record.setRiderRating(request.getRiderRating());
+        record.setPickupStation(request.getPickupStation());
+        record.setDestination(request.getDestination());
+        record.setStatus(request.getStatus());
+        record.setFare(request.getFare());
+        record.setPickupTimestamp(request.getPickupTimestamp());
+        Query query = new Query(Criteria.where("_id").is(driverId));
+        Update update = new Update().push("activeTrips", record);
         
-        if (driver == null) {
-            UpdatePickupStatusResponse response = UpdatePickupStatusResponse.newBuilder()
-                    .setSuccess(false)
-                    .setMessage("Driver not found")
-                    .build();
-            responseObserver.onNext(response);
-            responseObserver.onCompleted();
-            return;
-        }
+        long modifiedCount = mongoTemplate.updateFirst(query, update, Driver.class).getModifiedCount();
         
-        driver.setPickingUp(isPickingUp);
-        driverRepository.save(driver);
-        
-        UpdatePickupStatusResponse response = UpdatePickupStatusResponse.newBuilder()
-                .setSuccess(true)
-                .setMessage("Pickup status updated successfully")
+        AddTripResponse response = AddTripResponse.newBuilder()
+                .setSuccess(modifiedCount > 0)
+                .setMessage(modifiedCount > 0 ? "Trip added" : "Driver not found")
                 .build();
         
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
     
+
     @Override
     public void getDriverInfo(GetDriverInfoRequest request,
                               StreamObserver<GetDriverInfoResponse> responseObserver) {
@@ -162,11 +129,10 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
             responseBuilder.setSuccess(false);
         } else {
             responseBuilder.setDriverId(driver.getDriverId())
-                    .setOriginStation(driver.getOriginStation())
                     .setDestination(driver.getDestination())
                     .setAvailableSeats(driver.getAvailableSeats())
                     .addAllMetroStations(driver.getMetroStations())
-                    .setIsPickingUp(driver.isPickingUp())
+                    .setRating(driver.getRating())
                     .setSuccess(true);
             
             if (driver.getCurrentLocation() != null) {
@@ -186,12 +152,38 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
     @Override
     public void listDrivers(ListDriversRequest request,
                            StreamObserver<ListDriversResponse> responseObserver) {
-        List<String> driverIds = driverRepository.findAll().stream()
-                .map(Driver::getDriverId)
+        String station = request.getStation();
+        List<Driver> drivers;
+        
+        if (station == null || station.isEmpty()) {
+             drivers = driverRepository.findAll();
+        } else {
+             drivers = driverRepository.findAll().stream()
+                .filter(d -> d.getMetroStations() != null && d.getMetroStations().contains(station))
                 .toList();
+        }
+        
+        List<DriverInfo> driverInfos = drivers.stream().map(driver -> {
+            DriverInfo.Builder infoBuilder = DriverInfo.newBuilder()
+                    .setDriverId(driver.getDriverId())
+                    .setDestination(driver.getDestination() != null ? driver.getDestination() : "")
+                    .setAvailableSeats(driver.getAvailableSeats())
+                    .addAllMetroStations(driver.getMetroStations() != null ? driver.getMetroStations() : Collections.emptyList())
+                    .setRating(driver.getRating());
+
+            if (driver.getCurrentLocation() != null) {
+                Location location = Location.newBuilder()
+                        .setLatitude(driver.getCurrentLocation().getLatitude())
+                        .setLongitude(driver.getCurrentLocation().getLongitude())
+                        .setTimestamp(driver.getCurrentLocation().getTimestamp())
+                        .build();
+                infoBuilder.setCurrentLocation(location);
+            }
+            return infoBuilder.build();
+        }).toList();
         
         ListDriversResponse response = ListDriversResponse.newBuilder()
-                .addAllDriverIds(driverIds)
+                .addAllDrivers(driverInfos)
                 .setSuccess(true)
                 .build();
         
@@ -199,7 +191,7 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
         responseObserver.onCompleted();
     }
 
-    // --- Dashboard aggregation ---
+
     @Override
     public void getDriverDashboard(GetDriverDashboardRequest request, StreamObserver<GetDriverDashboardResponse> responseObserver) {
         String driverId = request.getDriverId();
@@ -222,6 +214,20 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
             totalEarnings = driver.getRideHistory().stream().mapToInt(Driver.TripRecord::getFare).sum();
         }
 
+        // Compute driver rating from history
+        double computedRating = driver.getRating();
+        if (!driver.getRideHistory().isEmpty()) {
+            double avgRating = driver.getRideHistory().stream()
+                .filter(t -> t.getDriverRatingReceived() > 0)
+                .mapToInt(Driver.TripRecord::getDriverRatingReceived)
+                .average()
+                .orElse(0.0);
+            
+            if (avgRating > 0) {
+                computedRating = Math.round(avgRating * 100.0) / 100.0;
+            }
+        }
+
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
         LocalDate yesterday = today.minusDays(1);
         int todayEarnings = 0;
@@ -237,6 +243,7 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
         for (Driver.TripRecord rec : driver.getActiveTrips()) {
             TripInfo info = TripInfo.newBuilder()
                     .setTripId(rec.getTripId())
+                    .setRiderId(rec.getRiderId() != null ? rec.getRiderId() : "")
                     .setRiderName(rec.getRiderName())
                     .setRiderRating(rec.getRiderRating())
                     .setPickupStation(rec.getPickupStation())
@@ -264,15 +271,13 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
 
         b.setSuccess(true)
                 .setDriverId(driver.getDriverId())
-                .setDriverRating(driver.getRating())
+                .setDriverRating(computedRating)
                 .setTotalEarnings(totalEarnings)
                 .setTodayEarnings(todayEarnings)
                 .setYesterdayEarnings(yesterdayEarnings)
-                .setOriginStation(driver.getOriginStation() == null ? "" : driver.getOriginStation())
                 .setDestination(driver.getDestination() == null ? "" : driver.getDestination())
                 .setAvailableSeats(driver.getAvailableSeats())
-                .addAllMetroStations(driver.getMetroStations() == null ? List.of() : driver.getMetroStations())
-                .setIsPickingUp(driver.isPickingUp());
+                .addAllMetroStations(driver.getMetroStations() == null ? List.of() : driver.getMetroStations());
 
         if (driver.getCurrentLocation() != null) {
             Location l = Location.newBuilder()
@@ -289,23 +294,23 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
 
     @Override
     public void rateRider(RateRiderRequest request, StreamObserver<RateRiderResponse> responseObserver) {
-        Driver driver = driverRepository.findById(request.getDriverId()).orElse(null);
-        if (driver == null) {
-            responseObserver.onNext(RateRiderResponse.newBuilder().setSuccess(false).setMessage("Driver not found").build());
-            responseObserver.onCompleted();
-            return;
-        }
-        if (driver.getRideHistory() == null) driver.setRideHistory(new ArrayList<>());
-        boolean updated = false;
-        for (Driver.TripRecord rec : driver.getRideHistory()) {
-            if (rec.getTripId().equals(request.getTripId())) {
-                rec.setRiderRatingGiven(request.getRating());
-                updated = true;
-                break;
-            }
-        }
-        if (updated) driverRepository.save(driver);
-        responseObserver.onNext(RateRiderResponse.newBuilder().setSuccess(updated).setMessage(updated?"Rating saved":"Trip not found").build());
+        String driverId = request.getDriverId();
+        String tripId = request.getTripId();
+        double rating = request.getRating();
+        
+        // Update local driver record using atomic update
+        Query query = new Query(Criteria.where("_id").is(driverId)
+                .and("activeTrips.tripId").is(tripId));
+        Update update = new Update().set("activeTrips.$.riderRating", rating);
+        
+        long modifiedCount = mongoTemplate.updateFirst(query, update, Driver.class).getModifiedCount();
+        
+        RateRiderResponse response = RateRiderResponse.newBuilder()
+                .setSuccess(modifiedCount > 0)
+                .setMessage(modifiedCount > 0 ? "Rider rated successfully" : "Trip not found")
+                .build();
+        
+        responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 }

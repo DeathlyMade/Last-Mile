@@ -3,8 +3,8 @@ syntax = "proto3";
 package com.lastmile.driver.proto;
 
 import "google/api/annotations.proto";
-import "google/api/http.proto";          // <--- REQUIRED for envoy transcoder
-import "google/protobuf/empty.proto";    // <--- optional but recommended
+import "google/api/http.proto";          
+import "google/protobuf/empty.proto";    
 
 option java_multiple_files = true;
 option java_package = "com.lastmile.driver.proto";
@@ -23,34 +23,35 @@ service DriverService {
       body: "*"
     };
   };
-  rpc UpdatePickupStatus(UpdatePickupStatusRequest) returns (UpdatePickupStatusResponse){
-    option (google.api.http) = {
-      post: "/driver/{driver_id}/pickup-status"
-      body: "*"
-    };
-  };
   rpc GetDriverInfo(GetDriverInfoRequest) returns (GetDriverInfoResponse){
     option (google.api.http) = {
       get: "/driver/{driver_id}"
     };
   };
   rpc ListDrivers(ListDriversRequest) returns (ListDriversResponse);
-  // Aggregated dashboard info for driver
+  
   rpc GetDriverDashboard(GetDriverDashboardRequest) returns (GetDriverDashboardResponse) {
-    option (google.api.http) = { get: "/driver/dashboard/{driver_id}" };
+    option (google.api.http) = { 
+      get: "/driver/dashboard/{driver_id}" 
+    };
   };
+
+  // Add a trip to driver's active list (Internal use by Trip/Matching service)
+  rpc AddTrip(AddTripRequest) returns (AddTripResponse);
+
   // Driver rates rider after trip completion
   rpc RateRider(RateRiderRequest) returns (RateRiderResponse) {
-    option (google.api.http) = { post: "/driver/{driver_id}/rate-rider" body: "*" };
+    option (google.api.http) = { 
+      post: "/driver/{driver_id}/rate-rider" body: "*" 
+    };
   };
 }
 
 message RegisterRouteRequest {
   string driver_id = 1;
-  string origin_station = 2;
-  string destination = 3;
-  int32 available_seats = 4;
-  repeated string metro_stations = 5;
+  string destination = 2;
+  int32 available_seats = 3;
+  repeated string metro_stations = 4;
 }
 
 message RegisterRouteResponse {
@@ -70,15 +71,6 @@ message UpdateLocationResponse {
   string message = 2;
 }
 
-message UpdatePickupStatusRequest {
-  string driver_id = 1;
-  bool is_picking_up = 2;
-}
-
-message UpdatePickupStatusResponse {
-  bool success = 1;
-  string message = 2;
-}
 
 message GetDriverInfoRequest {
   string driver_id = 1;
@@ -86,20 +78,29 @@ message GetDriverInfoRequest {
 
 message GetDriverInfoResponse {
   string driver_id = 1;
-  string origin_station = 2;
-  string destination = 3;
-  int32 available_seats = 4;
-  repeated string metro_stations = 5;
-  Location current_location = 6;
-  bool is_picking_up = 7;
-  bool success = 8;
+  string destination = 2;
+  int32 available_seats = 3;
+  repeated string metro_stations = 4;
+  Location current_location = 5;
+  bool success = 6;
+  double rating = 7;
 }
 
 message ListDriversRequest {
+  string station = 1;
+}
+
+message DriverInfo {
+  string driver_id = 1;
+  string destination = 2;
+  int32 available_seats = 3;
+  repeated string metro_stations = 4;
+  Location current_location = 5;
+  double rating = 6;
 }
 
 message ListDriversResponse {
-  repeated string driver_ids = 1;
+  repeated DriverInfo drivers = 1;
   bool success = 2;
 }
 
@@ -113,6 +114,7 @@ message TripInfo {
   string status = 6; // scheduled | active | completed
   int32 fare = 7;
   int64 pickup_timestamp = 8; // epoch ms
+  string rider_id = 9;
 }
 
 // Completed ride history item
@@ -127,7 +129,9 @@ message RideHistoryItem {
   int64 dropoff_timestamp = 8;
 }
 
-message GetDriverDashboardRequest { string driver_id = 1; }
+message GetDriverDashboardRequest { 
+  string driver_id = 1; 
+}
 
 message GetDriverDashboardResponse {
   bool success = 1;
@@ -138,12 +142,28 @@ message GetDriverDashboardResponse {
   int32 yesterday_earnings = 6;
   repeated TripInfo active_trips = 7;
   repeated RideHistoryItem ride_history = 8;
-  string origin_station = 9;
   string destination = 10;
   int32 available_seats = 11;
   repeated string metro_stations = 12;
   Location current_location = 13;
-  bool is_picking_up = 14;
+}
+
+message AddTripRequest {
+  string driver_id = 1;
+  string trip_id = 2;
+  string rider_name = 3;
+  double rider_rating = 4;
+  string pickup_station = 5;
+  string destination = 6;
+  string status = 7;
+  int32 fare = 8;
+  int64 pickup_timestamp = 9;
+  string rider_id = 10;
+}
+
+message AddTripResponse {
+  bool success = 1;
+  string message = 2;
 }
 
 message RateRiderRequest {

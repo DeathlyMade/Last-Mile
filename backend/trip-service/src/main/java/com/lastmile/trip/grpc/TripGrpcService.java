@@ -20,7 +20,7 @@ public class TripGrpcService extends TripServiceGrpc.TripServiceImplBase {
                           StreamObserver<CreateTripResponse> responseObserver) {
         String driverId = request.getDriverId();
         String riderId = request.getRiderId();
-        String originStation = request.getOriginStation();
+        String pickupStation = request.getPickupStation();
         String destination = request.getDestination();
         String matchId = request.getMatchId();
         
@@ -31,7 +31,7 @@ public class TripGrpcService extends TripServiceGrpc.TripServiceImplBase {
             trip.setTripId(UUID.randomUUID().toString());
             trip.setDriverId(driverId);
             trip.setRiderId(riderId);
-            trip.setOriginStation(originStation);
+            trip.setPickupStation(pickupStation);
             trip.setDestination(destination);
             trip.setStatus(Trip.TripStatus.SCHEDULED);
             trip.setCreatedAt(System.currentTimeMillis());
@@ -90,7 +90,7 @@ public class TripGrpcService extends TripServiceGrpc.TripServiceImplBase {
             responseBuilder.setTripId(trip.getTripId())
                     .setDriverId(trip.getDriverId())
                     .setRiderId(trip.getRiderId())
-                    .setOriginStation(trip.getOriginStation())
+                    .setPickupStation(trip.getPickupStation())
                     .setDestination(trip.getDestination())
                     .setStatus(convertStatusToProto(trip.getStatus()))
                     .setCreatedAt(trip.getCreatedAt())

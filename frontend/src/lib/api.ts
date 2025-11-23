@@ -68,9 +68,9 @@ export const stationApi = {
 export const driverApi = {
   registerRoute: (data: any) => api.post('/driver/register-route', data),
   updateLocation: (driverId: string, data: any) => api.post(`/driver/${driverId}/location`, data),
-  updatePickupStatus: (driverId: string, data: any) => api.post(`/driver/${driverId}/pickup-status`, data),
   getDriverInfo: (driverId: string) => api.get(`/driver/${driverId}`),
   getDashboard: (driverId: string) => api.get(`/driver/dashboard/${driverId}`),
+  rateRider: (data: any) => api.post(`/driver/${data.driverId}/rate-rider`, data),
 };
 
 export const riderApi = {
@@ -79,6 +79,7 @@ export const riderApi = {
   cancelRideRequest: (rideRequestId: string) => api.post(`/rider/ride-request/${rideRequestId}/cancel`),
   listRideRequests: (riderId: string) => api.get(`/rider/ride-requests/${riderId}`),
   deleteRideRequest: (rideRequestId: string) => api.delete(`/rider/ride-request/${rideRequestId}`),
+  rateRider: (data: any) => api.post(`/rider/${data.riderId}/rate`, data),
 };
 
 export const matchingApi = {

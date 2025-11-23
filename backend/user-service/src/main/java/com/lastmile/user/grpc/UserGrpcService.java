@@ -50,7 +50,7 @@ public class UserGrpcService extends UserServiceGrpc.UserServiceImplBase {
                 user = userRepository.save(user);
                 
                 String token = UUID.randomUUID().toString();
-                redisTemplate.opsForValue().set("token:" + token, user.getUserId(), 30, TimeUnit.SECONDS);
+                redisTemplate.opsForValue().set("token:" + token, user.getUserId(), 1, TimeUnit.HOURS);
                 
                 responseBuilder.setUserId(user.getUserId())
                         .setToken(token)
@@ -82,7 +82,7 @@ public class UserGrpcService extends UserServiceGrpc.UserServiceImplBase {
             } else {
                 User user = userOpt.get();
                 String token = UUID.randomUUID().toString();
-                redisTemplate.opsForValue().set("token:" + token, user.getUserId(), 30, TimeUnit.SECONDS);
+                redisTemplate.opsForValue().set("token:" + token, user.getUserId(), 1, TimeUnit.HOURS);
                 
                 responseBuilder.setUserId(user.getUserId())
                         .setToken(token)
@@ -146,30 +146,5 @@ public class UserGrpcService extends UserServiceGrpc.UserServiceImplBase {
         responseObserver.onNext(builder.build());
         responseObserver.onCompleted();
     }
-    
-//    @Override
-//    public void updateUserProfile(UpdateUserProfileRequest request,
-//                                 StreamObserver<UpdateUserProfileResponse> responseObserver) {
-//        String userId = request.getUserId();
-//        String name = request.getName();
-//
-//        UpdateUserProfileResponse.Builder responseBuilder = UpdateUserProfileResponse.newBuilder();
-//
-//        try {
-//            User user = userRepository.findById(userId)
-//                    .orElseThrow(() -> new RuntimeException("User not found"));
-//            user.setName(name);
-//            userRepository.save(user);
-//
-//            responseBuilder.setSuccess(true)
-//                    .setMessage("Profile updated successfully");
-//        } catch (Exception e) {
-//            responseBuilder.setSuccess(false)
-//                    .setMessage(e.getMessage());
-//        }
-//
-//        responseObserver.onNext(responseBuilder.build());
-//        responseObserver.onCompleted();
-//    }
 }
 

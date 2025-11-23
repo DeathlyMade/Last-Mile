@@ -41,8 +41,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
             for (com.lastmile.driver.proto.GetDriverInfoResponse driver : allDrivers) {
                 if (driver.getDestination().equals(destination) &&
                     driver.getMetroStationsList().contains(metroStation) &&
-                    driver.getAvailableSeats() > 0 &&
-                    !driver.getIsPickingUp()) {
+                    driver.getAvailableSeats() > 0) {
                     matchedDriver = driver;
                     break;
                 }
@@ -57,7 +56,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                 CreateTripRequest tripRequest = CreateTripRequest.newBuilder()
                         .setDriverId(matchedDriver.getDriverId())
                         .setRiderId(riderId)
-                        .setOriginStation(metroStation)
+                        .setPickupStation(metroStation)
                         .setDestination(destination)
                         .setMatchId(matchId)
                         .build();
@@ -122,20 +121,21 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                     driverStub.listDrivers(ListDriversRequest.getDefaultInstance());
             
             if (listResponse.getSuccess()) {
-                for (String driverId : listResponse.getDriverIdsList()) {
-                    try {
-                        GetDriverInfoRequest driverRequest = GetDriverInfoRequest.newBuilder()
-                                .setDriverId(driverId)
-                                .build();
-                        com.lastmile.driver.proto.GetDriverInfoResponse driver = 
-                                driverStub.getDriverInfo(driverRequest);
-                        
-                        if (driver.getSuccess()) {
-                            drivers.add(driver);
-                        }
-                    } catch (Exception e) {
-                        continue;
+                for (com.lastmile.driver.proto.DriverInfo info : listResponse.getDriversList()) {
+                    com.lastmile.driver.proto.GetDriverInfoResponse.Builder builder = 
+                        com.lastmile.driver.proto.GetDriverInfoResponse.newBuilder()
+                            .setDriverId(info.getDriverId())
+                            .setDestination(info.getDestination())
+                            .setAvailableSeats(info.getAvailableSeats())
+                            .addAllMetroStations(info.getMetroStationsList())
+                            .setRating(info.getRating())
+                            .setSuccess(true);
+                    
+                    if (info.hasCurrentLocation()) {
+                        builder.setCurrentLocation(info.getCurrentLocation());
                     }
+                    
+                    drivers.add(builder.build());
                 }
             }
         } catch (Exception e) {

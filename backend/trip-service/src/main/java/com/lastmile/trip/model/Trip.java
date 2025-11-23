@@ -11,7 +11,7 @@ public class Trip {
     private String tripId;
     private String driverId;
     private String riderId;
-    private String originStation;
+    private String pickupStation;
     private String destination;
     private TripStatus status;
     private long createdAt;

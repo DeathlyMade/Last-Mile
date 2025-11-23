@@ -35,7 +35,7 @@ service TripService {
 message CreateTripRequest {
   string driver_id = 1;
   string rider_id = 2;
-  string origin_station = 3;
+  string pickup_station = 3;
   string destination = 4;
   string match_id = 5;
 }
@@ -64,7 +64,7 @@ message GetTripInfoResponse {
   string trip_id = 1;
   string driver_id = 2;
   string rider_id = 3;
-  string origin_station = 4;
+  string pickup_station = 4;
   string destination = 5;
   TripStatus status = 6;
   int64 created_at = 7;
