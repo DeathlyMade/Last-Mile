@@ -3,7 +3,7 @@ syntax = "proto3";
 package com.lastmile.matching.proto;
 
 import "google/api/annotations.proto";
-import "google/api/http.proto";          // <--- REQUIRED for envoy transcoder
+import "google/api/http.proto";         
 import "google/protobuf/empty.proto"; 
 
 option java_multiple_files = true;
@@ -22,14 +22,25 @@ service MatchingService {
       get: "/match/{match_id}"
     };
   };
+  rpc AcceptMatch(AcceptMatchRequest) returns (AcceptMatchResponse){
+    option (google.api.http) = {
+      post: "/match/{match_id}/accept"
+      body: "*"
+    };
+  };
+  rpc DeclineMatch(DeclineMatchRequest) returns (DeclineMatchResponse){
+    option (google.api.http) = {
+      post: "/match/{match_id}/decline"
+      body: "*"
+    };
+  };
 }
 
 message MatchRiderWithDriverRequest {
-  string ride_request_id = 1;
-  string rider_id = 2;
-  string metro_station = 3;
-  string destination = 4;
-  int64 arrival_time = 5;
+  string rider_id = 1;
+  string metro_station = 2;
+  string destination = 3;
+  int64 arrival_time = 4;
 }
 
 message MatchRiderWithDriverResponse {
@@ -57,5 +68,27 @@ enum MatchStatus {
   MATCHED = 1;
   CONFIRMED = 2;
   CANCELLED = 3;
+}
+
+message AcceptMatchRequest {
+  string match_id = 1;
+  string driver_id = 2;
+}
+
+message AcceptMatchResponse {
+  bool success = 1;
+  string message = 2;
+  string trip_id = 3;
+}
+
+message DeclineMatchRequest {
+  string match_id = 1;
+  string driver_id = 2;
+  string reason = 3;
+}
+
+message DeclineMatchResponse {
+  bool success = 1;
+  string message = 2;
 }
 
