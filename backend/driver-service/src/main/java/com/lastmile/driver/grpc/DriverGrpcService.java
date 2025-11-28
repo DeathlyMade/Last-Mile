@@ -99,7 +99,8 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
         record.setDestination(request.getDestination());
         record.setStatus("scheduled");
         record.setFare(request.getFare());
-        Query query = new Query(Criteria.where("_id").is(driverId));
+        
+        Query query = new Query(Criteria.where("_id").is(driverId).and("availableSeats").gt(0));
         Update update = new Update()
                 .push("activeTrips", record)
                 .inc("availableSeats", -1);
@@ -108,7 +109,7 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
         
         AcceptTripResponse response = AcceptTripResponse.newBuilder()
                 .setSuccess(modifiedCount > 0)
-                .setMessage(modifiedCount > 0 ? "Trip accepted" : "Driver not found")
+                .setMessage(modifiedCount > 0 ? "Trip accepted" : "Driver not found or no seats available")
                 .build();
         
         responseObserver.onNext(response);

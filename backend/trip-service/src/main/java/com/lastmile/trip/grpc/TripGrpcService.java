@@ -5,12 +5,16 @@ import com.lastmile.trip.proto.*;
 import com.lastmile.trip.repository.TripRepository;
 import com.lastmile.driver.proto.*;
 import com.lastmile.rider.proto.*;
+import com.lastmile.user.proto.*;
+import io.grpc.Metadata;
+import io.grpc.stub.AbstractStub;
+import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
 import net.devh.boot.grpc.server.service.GrpcService;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.UUID;
+import java.util.*;
 
 @GrpcService
 public class TripGrpcService extends TripServiceGrpc.TripServiceImplBase {
@@ -23,6 +27,17 @@ public class TripGrpcService extends TripServiceGrpc.TripServiceImplBase {
 
     @GrpcClient("driver-service")
     private DriverServiceGrpc.DriverServiceBlockingStub driverStub;
+
+    @GrpcClient("user-service")
+    private UserServiceGrpc.UserServiceBlockingStub userStub;
+
+    private <T extends AbstractStub<T>> T attachToken(T stub) {
+        String token = AuthInterceptor.AUTH_TOKEN_KEY.get();
+        if (token == null) return stub;
+        Metadata headers = new Metadata();
+        headers.put(Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER), "Bearer " + token);
+        return MetadataUtils.attachHeaders(stub, headers);
+    }
     
     @Override
     public void createTrip(CreateTripRequest request,
@@ -54,7 +69,7 @@ public class TripGrpcService extends TripServiceGrpc.TripServiceImplBase {
             // Fetch Rider Info for Rating
             double riderRating = 0.0;
             try {
-                GetRiderInfoResponse riderInfo = riderStub.getRiderInfo(
+                GetRiderInfoResponse riderInfo = attachToken(riderStub).getRiderInfo(
                     GetRiderInfoRequest.newBuilder().setRiderId(riderId).build()
                 );
                 if (riderInfo.getSuccess()) {
@@ -64,13 +79,26 @@ public class TripGrpcService extends TripServiceGrpc.TripServiceImplBase {
                 System.err.println("Failed to fetch rider info: " + e.getMessage());
             }
 
+            // Fetch Rider Name from User Service
+            String riderName = "Rider " + riderId;
+            try {
+                GetUserProfileResponse userProfile = attachToken(userStub).getUserProfile(
+                    GetUserProfileRequest.newBuilder().setUserId(riderId).build()
+                );
+                if (userProfile.getSuccess()) {
+                    riderName = userProfile.getName();
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to fetch rider name: " + e.getMessage());
+            }
+
             // Notify Driver
             try {
-                driverStub.acceptTrip(AcceptTripRequest.newBuilder()
+                AcceptTripResponse driverResponse = attachToken(driverStub).acceptTrip(AcceptTripRequest.newBuilder()
                     .setDriverId(driverId)
                     .setTripId(tripId)
                     .setRiderId(riderId)
-                    .setRiderName("Rider " + riderId) // Get it from rider service (will create a function in rider service to fetch name given riderId)
+                    .setRiderName(riderName)
                     .setRiderRating(riderRating)
                     .setPickupStation(pickupStation)
                     .setDestination(destination)
@@ -82,7 +110,7 @@ public class TripGrpcService extends TripServiceGrpc.TripServiceImplBase {
 
             // Notify Rider
             try {
-                riderStub.matchedWithDriver(MatchedWithDriverRequest.newBuilder()
+                attachToken(riderStub).matchedWithDriver(MatchedWithDriverRequest.newBuilder()
                     .setRiderId(riderId)
                     .setDriverId(driverId)
                     .setTripId(tripId)

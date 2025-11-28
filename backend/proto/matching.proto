@@ -34,6 +34,13 @@ service MatchingService {
       body: "*"
     };
   };
+
+  rpc CancelMatchRequestByRider(CancelMatchRequest) returns (CancelMatchResponse){
+    option (google.api.http) = {
+      post: "/match/{match_id}/cancel"
+      body: "*"
+    };
+  };
 }
 
 message MatchRiderWithDriverRequest {
@@ -84,7 +91,6 @@ message AcceptMatchResponse {
 message DeclineMatchRequest {
   string match_id = 1;
   string driver_id = 2;
-  string reason = 3;
 }
 
 message DeclineMatchResponse {
@@ -92,3 +98,12 @@ message DeclineMatchResponse {
   string message = 2;
 }
 
+message CancelMatchRequest {
+  string match_id = 1;
+  string rider_id = 2;
+}
+
+message CancelMatchResponse {
+  bool success = 1;
+  string message = 2;
+}

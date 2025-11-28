@@ -36,10 +36,10 @@ service RiderService {
     };
   };
 
-
+  // called from Trip service to get rider info
   rpc GetRiderInfo(GetRiderInfoRequest) returns (GetRiderInfoResponse);  
 
-  // Cancel an active ride request called from Trip Service
+  // Cancel an active ride request called from Matching Service
   rpc CancelRideRequest(CancelRideRequestRequest) returns (CancelRideRequestResponse);
 
   // Rate a driver at end of trip called from Trip Service
@@ -48,7 +48,7 @@ service RiderService {
   // Set rating for rider from driver at end of trip called from Trip Service
   rpc SetRatingFromDriver(SetRatingFromDriverRequest) returns (SetRatingFromDriverResponse);
 
-  // Notify rider that they have been matched with a driver called from (Trip / Matching Service)
+  // Notify rider that they have been matched with a driver called from Trip Service
   rpc MatchedWithDriver (MatchedWithDriverRequest) returns (MatchedWithDriverResponse);
 
   // Notify rider that their ride has started called from Trip Service

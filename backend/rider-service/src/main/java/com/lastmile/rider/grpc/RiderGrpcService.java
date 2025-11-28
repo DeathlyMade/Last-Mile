@@ -12,7 +12,6 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 
 import java.util.*;
-import java.util.UUID;
 
 @GrpcService
 public class RiderGrpcService extends RiderServiceGrpc.RiderServiceImplBase {

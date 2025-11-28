@@ -7,6 +7,10 @@ import com.lastmile.driver.proto.*;
 import com.lastmile.station.proto.*;
 import com.lastmile.trip.proto.*;
 import com.lastmile.notification.proto.*;
+import com.lastmile.rider.proto.*;
+import io.grpc.Metadata;
+import io.grpc.stub.AbstractStub;
+import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import net.devh.boot.grpc.server.service.GrpcService;
@@ -31,6 +35,17 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
 
     @GrpcClient("notification-service")
     private NotificationServiceGrpc.NotificationServiceBlockingStub notificationStub;
+
+    @GrpcClient("rider-service")
+    private RiderServiceGrpc.RiderServiceBlockingStub riderStub;
+
+    private <T extends AbstractStub<T>> T attachToken(T stub) {
+        String token = AuthInterceptor.AUTH_TOKEN_KEY.get();
+        if (token == null) return stub;
+        Metadata headers = new Metadata();
+        headers.put(Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER), "Bearer " + token);
+        return MetadataUtils.attachHeaders(stub, headers);
+    }
     
     @Override
     public void matchRiderWithDriver(MatchRiderWithDriverRequest request,
@@ -100,7 +115,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                             .setFare((int)match.getFare())
                             .build();
                     
-                    CreateTripResponse tripResponse = tripStub.createTrip(tripRequest);
+                    CreateTripResponse tripResponse = attachToken(tripStub).createTrip(tripRequest);
                     
                     if (tripResponse.getSuccess()) {
                         match.setStatus("CONFIRMED");
@@ -199,6 +214,48 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
         responseObserver.onNext(responseBuilder.build());
         responseObserver.onCompleted();
     }
+
+    @Override
+    public void cancelMatchRequestByRider(CancelMatchRequest request,
+                                         StreamObserver<CancelMatchResponse> responseObserver) {
+        String matchId = request.getMatchId();
+        String riderId = request.getRiderId();
+        
+        CancelMatchResponse.Builder responseBuilder = CancelMatchResponse.newBuilder();
+        
+        try {
+            Optional<Match> matchOpt = matchRepository.findById(matchId);
+            if (matchOpt.isPresent()) {
+                Match match = matchOpt.get();
+                match.setStatus("CANCELLED");
+                matchRepository.save(match);
+                responseBuilder.setSuccess(true)
+                        .setMessage("Match cancelled successfully"); 
+
+                // call CancelRideRequest in rider service
+                try {
+                    attachToken(riderStub).cancelRideRequest(
+                        CancelRideRequestRequest.newBuilder()
+                            .setRiderId(riderId)
+                            .build()
+                    );
+                } catch (Exception e) {
+                    System.err.println("Failed to cancel ride request in RiderService: " + e.getMessage());
+                }
+                
+            } 
+            else {
+                responseBuilder.setSuccess(false)
+                        .setMessage("Match not found");
+            }
+        } catch (Exception e) {
+            responseBuilder.setSuccess(false)
+                    .setMessage("Error cancelling match: " + e.getMessage());
+        }
+        
+        responseObserver.onNext(responseBuilder.build());
+        responseObserver.onCompleted();
+    }
     
     private com.lastmile.matching.proto.MatchStatus convertStatus(String status) {
         if (status == null) return com.lastmile.matching.proto.MatchStatus.PENDING;
@@ -215,7 +272,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                 .setStation(pickupStation)
                 .build();
                 
-            com.lastmile.driver.proto.ListDriversResponse listResponse = driverStub.listDrivers(listRequest);
+            com.lastmile.driver.proto.ListDriversResponse listResponse = attachToken(driverStub).listDrivers(listRequest);
             
             if (listResponse.getSuccess()) {
                 for (com.lastmile.driver.proto.DriverInfo driver : listResponse.getDriversList()) {
@@ -238,7 +295,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
     private int calculateFare(String pickupStation, com.lastmile.driver.proto.DriverInfo driver) {
         int fare = 50;
         try {
-            GetStationInfoResponse stationInfo = stationStub.getStationInfo(
+            GetStationInfoResponse stationInfo = attachToken(stationStub).getStationInfo(
                 GetStationInfoRequest.newBuilder().setStationId(pickupStation).build()
             );
             
@@ -260,7 +317,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
 
     private void notifyDriver(String driverId, String riderId, String matchId) {
         try {
-            notificationStub.sendMatchNotification(
+            attachToken(notificationStub).sendMatchNotification(
                 SendMatchNotificationRequest.newBuilder()
                     .setDriverId(driverId)
                     .setRiderId(riderId)
