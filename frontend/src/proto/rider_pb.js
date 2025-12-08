@@ -2510,8 +2510,7 @@ proto.com.lastmile.rider.proto.MatchedWithDriverRequest.toObject = function(incl
     riderId: jspb.Message.getFieldWithDefault(msg, 1, ""),
     driverId: jspb.Message.getFieldWithDefault(msg, 2, ""),
     tripId: jspb.Message.getFieldWithDefault(msg, 3, ""),
-    driverName: jspb.Message.getFieldWithDefault(msg, 4, ""),
-    fare: jspb.Message.getFieldWithDefault(msg, 5, 0)
+    driverName: jspb.Message.getFieldWithDefault(msg, 4, "")
   };
 
   if (includeInstance) {
@@ -2563,10 +2562,6 @@ proto.com.lastmile.rider.proto.MatchedWithDriverRequest.deserializeBinaryFromRea
     case 4:
       var value = /** @type {string} */ (reader.readString());
       msg.setDriverName(value);
-      break;
-    case 5:
-      var value = /** @type {number} */ (reader.readInt32());
-      msg.setFare(value);
       break;
     default:
       reader.skipField();
@@ -2622,13 +2617,6 @@ proto.com.lastmile.rider.proto.MatchedWithDriverRequest.serializeBinaryToWriter 
   if (f.length > 0) {
     writer.writeString(
       4,
-      f
-    );
-  }
-  f = message.getFare();
-  if (f !== 0) {
-    writer.writeInt32(
-      5,
       f
     );
   }
@@ -2704,24 +2692,6 @@ proto.com.lastmile.rider.proto.MatchedWithDriverRequest.prototype.getDriverName 
  */
 proto.com.lastmile.rider.proto.MatchedWithDriverRequest.prototype.setDriverName = function(value) {
   return jspb.Message.setProto3StringField(this, 4, value);
-};
-
-
-/**
- * optional int32 fare = 5;
- * @return {number}
- */
-proto.com.lastmile.rider.proto.MatchedWithDriverRequest.prototype.getFare = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 5, 0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.com.lastmile.rider.proto.MatchedWithDriverRequest} returns this
- */
-proto.com.lastmile.rider.proto.MatchedWithDriverRequest.prototype.setFare = function(value) {
-  return jspb.Message.setProto3IntField(this, 5, value);
 };
 
 

@@ -40,4 +40,8 @@ spec:
           value: "mongodb"
         - name: MONGODB_PORT
           value: "27017"
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
 

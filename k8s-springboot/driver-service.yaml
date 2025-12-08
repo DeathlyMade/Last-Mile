@@ -44,4 +44,8 @@ spec:
           value: "station-service"
         - name: STATION_SERVICE_PORT
           value: "50051"
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
 

@@ -35,6 +35,11 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 50056
+        resources:
+          requests:
+            cpu: "100m"
+          limits:
+            cpu: "500m"
         env:
         - name: DRIVER_SERVICE_HOST
           value: "driver-service"
@@ -44,4 +49,33 @@ spec:
           value: "trip-service"
         - name: TRIP_SERVICE_PORT
           value: "50057"
-
+        - name: STATION_SERVICE_HOST
+          value: "station-service"
+        - name: STATION_SERVICE_PORT
+          value: "50051"
+        - name: RIDER_SERVICE_HOST
+          value: "rider-service"
+        - name: RIDER_SERVICE_PORT
+          value: "50054"
+        - name: NOTIFICATION_SERVICE_HOST
+          value: "notification-service"
+        - name: NOTIFICATION_SERVICE_PORT
+          value: "50058"
+        - name: MONGODB_HOST
+          value: "mongodb"
+        - name: MONGODB_PORT
+          value: "27017"
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        readinessProbe:
+          tcpSocket:
+            port: 50056
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 50056
+          initialDelaySeconds: 45
+          periodSeconds: 20

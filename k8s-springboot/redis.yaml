@@ -31,7 +31,8 @@ spec:
     spec:
       containers:
       - name: redis
-        image: redis:7-alpine
+        image: lastmile/redis:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 6379
 

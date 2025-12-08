@@ -40,4 +40,24 @@ spec:
           value: "mongodb"
         - name: MONGODB_PORT
           value: "27017"
+        - name: RIDER_SERVICE_HOST
+          value: "rider-service"
+        - name: RIDER_SERVICE_PORT
+          value: "50054"
+        - name: DRIVER_SERVICE_HOST
+          value: "driver-service"
+        - name: DRIVER_SERVICE_PORT
+          value: "50053"
+        - name: NOTIFICATION_SERVICE_HOST
+          value: "notification-service"
+        - name: NOTIFICATION_SERVICE_PORT
+          value: "50058"
+        - name: USER_SERVICE_HOST
+          value: "user-service"
+        - name: USER_SERVICE_PORT
+          value: "50052"
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
 

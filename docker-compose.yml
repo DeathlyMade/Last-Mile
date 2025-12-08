@@ -260,7 +260,7 @@ services:
     command: >
       bash -c "apt-get update && apt-get install -y protobuf-compiler &&
       cd frontend && npm install && cd .. &&
-      ./generate-proto.sh"
+      bash ./generate-proto.sh"
     networks:
       - lastmile-network
 
