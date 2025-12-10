@@ -152,7 +152,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                     currentSeats--;
 
                     notifyDriver(driverId, match.getRiderId(), match.getMatchId(), token);
-                    publishMatchUpdate(match.getRiderId(), match.getMatchId(), "MATCHED", driverId, null);
+                    publishMatchUpdate(match.getRiderId(), match.getMatchId(), "MATCHED", driverId, null, fare);
                     publishDriverMatchRequest(driverId, match.getMatchId(), match.getRiderId(), pickup, dest, fare);
                 }
             }
@@ -575,7 +575,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                 matchRepository.save(match);
                 
                 // Notify Rider -> "Searching for new driver..."
-                publishMatchUpdate(match.getRiderId(), match.getMatchId(), "PENDING", null, null);
+                publishMatchUpdate(match.getRiderId(), match.getMatchId(), "PENDING", null, null, 0);
                 
                 // Ideally cancel the request sent to the driver dashboard too, but the dashboard usually just polls or listens.
                 // We can send a CANCEL/TIMEOUT event to the driver if needed.

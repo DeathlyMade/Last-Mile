@@ -1,0 +1,114 @@
+syntax = "proto3";
+
+package com.lastmile.trip.proto;
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";         
+import "google/protobuf/empty.proto"; 
+
+option java_multiple_files = true;
+option java_package = "com.lastmile.trip.proto";
+option java_outer_classname = "TripProto";
+
+service TripService {
+
+  // called from Matching Service after the driver and rider have been matched
+  rpc CreateTrip(CreateTripRequest) returns (CreateTripResponse);
+  
+  rpc GetTripInfo(GetTripInfoRequest) returns (GetTripInfoResponse){
+    option (google.api.http) = {
+      get: "/trip/{trip_id}"
+    };
+  };
+  rpc RecordPickup(RecordPickupRequest) returns (RecordPickupResponse){
+    option (google.api.http) = {
+      post: "/trip/{trip_id}/pickup"
+      body: "*"
+    };
+  };
+  rpc RecordDropoff(RecordDropoffRequest) returns (RecordDropoffResponse){
+    option (google.api.http) = {
+      post: "/trip/{trip_id}/dropoff"
+      body: "*"
+    };
+  };
+
+  // Server-side streaming for trip status updates
+  rpc MonitorTripUpdates(MonitorTripUpdatesRequest) returns (stream MonitorTripUpdatesResponse);
+}
+
+message MonitorTripUpdatesRequest {
+  string trip_id = 1;
+  string user_id = 2; // can be rider or driver
+}
+
+message MonitorTripUpdatesResponse {
+  string trip_id = 1;
+  TripStatus status = 2;
+  string message = 3;
+  bool success = 4;
+}
+
+message CreateTripRequest {
+  string driver_id = 1;
+  string rider_id = 2;
+  string pickup_station = 3;
+  string destination = 4;
+  string match_id = 5;
+  int32 fare = 6;
+}
+
+message CreateTripResponse {
+  string trip_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+
+message GetTripInfoRequest {
+  string trip_id = 1;
+}
+
+message GetTripInfoResponse {
+  string trip_id = 1;
+  string driver_id = 2;
+  string rider_id = 3;
+  string pickup_station = 4;
+  string destination = 5;
+  TripStatus status = 6;
+  int64 created_at = 7;
+  int64 pickup_time = 8;
+  int64 dropoff_time = 9;
+  bool success = 10;
+  int32 fare = 11;
+}
+
+message RecordPickupRequest {
+  string trip_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+}
+
+message RecordPickupResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message RecordDropoffRequest {
+  string trip_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+  int32 fare = 4;
+}
+
+message RecordDropoffResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+enum TripStatus {
+  SCHEDULED = 0;
+  ACTIVE = 1;
+  COMPLETED = 2;
+}
+

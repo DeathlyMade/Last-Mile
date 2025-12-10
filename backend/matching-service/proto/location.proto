@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package com.lastmile.location.proto;
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";          // <--- REQUIRED for envoy transcoder
+import "google/protobuf/empty.proto"; 
+
+option java_multiple_files = true;
+option java_package = "com.lastmile.location.proto";
+option java_outer_classname = "LocationProto";
+
+service LocationService {
+  rpc UpdateLocation(UpdateLocationRequest) returns (UpdateLocationResponse){
+    option (google.api.http) = {
+      post: "/location/{driver_id}"
+      body: "*"
+    };
+  };
+  rpc GetLocation(GetLocationRequest) returns (GetLocationResponse);
+  rpc FindNearbyDrivers(FindNearbyDriversRequest) returns (FindNearbyDriversResponse){
+    option (google.api.http) = {
+      get: "/location/nearby"
+    };
+  };
+
+  // Server-side streaming for rider to watch driver location
+  rpc MonitorDriverLocation(MonitorDriverLocationRequest) returns (stream DriverLocation);
+}
+
+message MonitorDriverLocationRequest {
+  string driver_id = 1;
+}
+
+message UpdateLocationRequest {
+  string driver_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+}
+
+message UpdateLocationResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetLocationRequest {
+  string driver_id = 1;
+}
+
+message GetLocationResponse {
+  double latitude = 1;
+  double longitude = 2;
+  int64 timestamp = 3;
+  bool success = 4;
+}
+
+message FindNearbyDriversRequest {
+  double latitude = 1;
+  double longitude = 2;
+  double radius_km = 3;
+}
+
+message FindNearbyDriversResponse {
+  repeated DriverLocation drivers = 1;
+  bool success = 2;
+}
+
+message DriverLocation {
+  string driver_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+  double distance_km = 4;
+}
+

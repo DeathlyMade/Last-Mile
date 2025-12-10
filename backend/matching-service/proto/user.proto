@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+package com.lastmile.user.proto;
+
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";          
+import "google/protobuf/empty.proto";   
+
+option java_multiple_files = true; //generator emits one class per message/service/enum
+option java_package = "com.lastmile.user.proto";
+option java_outer_classname = "UserProto";
+
+service UserService {
+  rpc RegisterUser(RegisterUserRequest) returns (RegisterUserResponse) {
+    option (google.api.http) = {
+      post: "/user/register"
+      body: "*"
+    };
+  }
+
+  rpc LoginUser(LoginUserRequest) returns (LoginUserResponse) {
+    option (google.api.http) = {
+      post: "/user/login"
+      body: "*"
+    };
+  }
+
+  rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse) {
+    option (google.api.http) = {
+      get: "/user/profile/{user_id}"
+    };
+  }
+
+  // Invalidate current token (requires Authorization header); returns success only.
+  rpc LogoutUser(LogoutUserRequest) returns (LogoutUserResponse) {
+    option (google.api.http) = {
+      post: "/user/logout"
+      body: "*"
+    };
+  }
+}
+
+message RegisterUserRequest {
+  string email = 1;
+  string password = 2;
+  string name = 3;
+  string phone = 4;           // Added phone field
+  UserType user_type = 5;      // Shifted field number to maintain uniqueness
+}
+
+message RegisterUserResponse {
+  string user_id = 1;
+  string token = 2;
+  bool success = 3;
+  string message = 4;
+}
+
+message LoginUserRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginUserResponse {
+  string user_id = 1;
+  string token = 2;
+  bool success = 3;
+  string message = 4;
+}
+
+message GetUserProfileRequest {
+  string user_id = 1;
+}
+
+message GetUserProfileResponse {
+  string user_id = 1;
+  string email = 2;
+  string name = 3;
+  string phone = 4;            // Added phone in profile response
+  UserType user_type = 5;
+  bool success = 6;
+}
+
+message UpdateUserProfileRequest {
+  string user_id = 1;
+  string name = 2;
+}
+
+message UpdateUserProfileResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Empty request; token taken from Authorization header via interceptor context.
+message LogoutUserRequest {}
+
+message LogoutUserResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+enum UserType {
+  RIDER = 0;
+  DRIVER = 1;
+}

@@ -10,6 +10,11 @@ if [ "$REPLICAS" -lt 2 ]; then
     kubectl rollout status deployment/matching-service
 fi
 
+echo "Injecting dummy authentication token into Redis..."
+REDIS_POD=$(kubectl get pods -l app=redis -o jsonpath="{.items[0].metadata.name}")
+kubectl exec $REDIS_POD -- redis-cli set token:ha-test-token ha-test-user
+echo "Token injected."
+
 echo "Starting traffic loop (hitting Gateway)..."
 kubectl run ha-test-client --image=curlimages/curl --restart=Never -- /bin/sh -c '
   while true; do 
@@ -46,7 +51,7 @@ sleep 5
 # Find a victim pod
 POD_TO_KILL=$(kubectl get pods -l app=matching-service -o name | head -n 1)
 echo "----------------------------------------------------------------"
-echo "🔥 SIMULATING FAILURE: Deleting $POD_TO_KILL in 3 seconds..."
+echo "SIMULATING FAILURE: Deleting $POD_TO_KILL in 3 seconds..."
 echo "----------------------------------------------------------------"
 sleep 3
 kubectl delete $POD_TO_KILL &
@@ -54,7 +59,7 @@ kubectl delete $POD_TO_KILL &
 # Wait a bit to observe
 sleep 10
 echo "----------------------------------------------------------------"
-echo "✅ Test Complete. If you saw 'Request Successful' continue during the deletion, HA works."
+echo "Test Complete. If you saw 'Request Successful' continue during the deletion, HA works."
 echo "----------------------------------------------------------------"
 
 # Cleanup
