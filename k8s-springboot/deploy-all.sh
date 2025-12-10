@@ -48,7 +48,7 @@ if [ ! -d "../frontend/src/proto" ]; then
     echo "Generating protos for frontend..."
     (cd .. && ./generate-proto.sh)
 fi
-ensure_image "lastmile/new-frontend:latest" ".." "frontend/Dockerfile"
+ensure_image "lastmile/new-frontend:latest" ".." "../frontend/Dockerfile"
 
 
 # Deployment Steps

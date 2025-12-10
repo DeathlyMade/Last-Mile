@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package com.lastmile.station.proto;
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";          
+import "google/protobuf/empty.proto"; 
+
+option java_multiple_files = true;
+option java_package = "com.lastmile.station.proto";
+option java_outer_classname = "StationProto";
+
+service StationService {
+  rpc GetStationsAlongRoute(GetStationsAlongRouteRequest) returns (GetStationsAlongRouteResponse)
+  {
+    option (google.api.http) = {
+      post: "/station/route"
+      body: "*"
+    };
+  };
+  rpc GetStationInfo(GetStationInfoRequest) returns (GetStationInfoResponse);
+  rpc GetAllStations(GetAllStationsRequest) returns (GetAllStationsResponse){
+    option (google.api.http) = {
+      get: "/station"
+    };
+  };
+}
+
+message LatLng {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+message GetStationsAlongRouteRequest {
+  string origin = 1;
+  string destination = 2;
+  repeated LatLng route_points = 3; 
+}
+
+message GetStationsAlongRouteResponse {
+  repeated Station stations = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message GetStationInfoRequest {
+  string station_id = 1;
+}
+
+message GetStationInfoResponse {
+  Station station = 1;
+  bool success = 2;
+}
+
+message GetAllStationsRequest {
+}
+
+message GetAllStationsResponse {
+  repeated Station stations = 1;
+  bool success = 2;
+}
+
+message Station {
+  string station_id = 1;
+  string name = 2;
+  double latitude = 3;
+  double longitude = 4;
+  string line = 5;
+  int32 order = 6;
+}
+
