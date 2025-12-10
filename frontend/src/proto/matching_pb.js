@@ -481,7 +481,8 @@ proto.com.lastmile.matching.proto.MonitorMatchStatusResponse.toObject = function
     status: jspb.Message.getFieldWithDefault(msg, 4, 0),
     tripId: jspb.Message.getFieldWithDefault(msg, 5, ""),
     success: jspb.Message.getBooleanFieldWithDefault(msg, 6, false),
-    message: jspb.Message.getFieldWithDefault(msg, 7, "")
+    message: jspb.Message.getFieldWithDefault(msg, 7, ""),
+    fare: jspb.Message.getFieldWithDefault(msg, 8, 0)
   };
 
   if (includeInstance) {
@@ -545,6 +546,10 @@ proto.com.lastmile.matching.proto.MonitorMatchStatusResponse.deserializeBinaryFr
     case 7:
       var value = /** @type {string} */ (reader.readString());
       msg.setMessage(value);
+      break;
+    case 8:
+      var value = /** @type {number} */ (reader.readInt32());
+      msg.setFare(value);
       break;
     default:
       reader.skipField();
@@ -621,6 +626,13 @@ proto.com.lastmile.matching.proto.MonitorMatchStatusResponse.serializeBinaryToWr
   if (f.length > 0) {
     writer.writeString(
       7,
+      f
+    );
+  }
+  f = message.getFare();
+  if (f !== 0) {
+    writer.writeInt32(
+      8,
       f
     );
   }
@@ -750,6 +762,24 @@ proto.com.lastmile.matching.proto.MonitorMatchStatusResponse.prototype.getMessag
  */
 proto.com.lastmile.matching.proto.MonitorMatchStatusResponse.prototype.setMessage = function(value) {
   return jspb.Message.setProto3StringField(this, 7, value);
+};
+
+
+/**
+ * optional int32 fare = 8;
+ * @return {number}
+ */
+proto.com.lastmile.matching.proto.MonitorMatchStatusResponse.prototype.getFare = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 8, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.com.lastmile.matching.proto.MonitorMatchStatusResponse} returns this
+ */
+proto.com.lastmile.matching.proto.MonitorMatchStatusResponse.prototype.setFare = function(value) {
+  return jspb.Message.setProto3IntField(this, 8, value);
 };
 
 

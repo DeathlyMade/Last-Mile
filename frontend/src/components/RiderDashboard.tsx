@@ -338,8 +338,10 @@ export function RiderDashboard({ user }: RiderDashboardProps) {
         const matchId = response.getMatchId();
         const driverId = response.getDriverId();
         const tripId = response.getTripId();
+        // @ts-ignore
+        const fare = response.getFare ? response.getFare() : 0;
 
-        console.log('DEBUG: Match Update Received:', { status, matchId, driverId, tripId });
+        console.log('DEBUG: Match Update Received:', { status, matchId, driverId, tripId, fare });
 
         // Check for CONFIRMED status (Enum value 2 or string "CONFIRMED")
         if (status === 2 || status === 'CONFIRMED') {
@@ -371,6 +373,7 @@ export function RiderDashboard({ user }: RiderDashboardProps) {
                   ...r,
                   status: 'matched',
                   tripId,
+                  fare: fare > 0 ? fare : r.fare, // Update fare if provided
                   driver: {
                     id: driverId,
                     name: driverName,
@@ -457,6 +460,12 @@ export function RiderDashboard({ user }: RiderDashboardProps) {
   const handleRateDriver = (rating: number, feedback: string) => {
     toast.success(`Thank you for rating ${selectedDriverForRating?.name}!`);
     // In production, send rating to backend
+
+    // Reset state to allow new ride
+    setRatingDialogOpen(false);
+    setSelectedDriverForRating(null);
+    setActiveRide(null);
+    setInRide(false);
   };
 
   const handleCancelRide = async (rideId: string) => {

@@ -673,7 +673,7 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
                     <TabsTrigger value="all" className="flex-1">All</TabsTrigger>
                   </TabsList>
                   <TabsContent value="recent">
-                    {rideHistory.slice(0, 5).map(ride => (
+                    {rideHistory.slice(0, 3).map(ride => (
                       <div key={ride.id} className="text-sm border-b py-2 last:border-0">
                         <div className="flex justify-between font-medium">
                           <span>{ride.riderName}</span>
@@ -682,6 +682,23 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
                         <div className="text-gray-500 text-xs">{ride.date} • {ride.destination}</div>
                       </div>
                     ))}
+                  </TabsContent>
+                  <TabsContent value="all">
+                    {rideHistory.length === 0 ? (
+                      <div className="text-center py-4 text-gray-500 text-sm">No past rides found</div>
+                    ) : (
+                      <div className="max-h-60 overflow-y-auto pr-1">
+                        {rideHistory.map(ride => (
+                          <div key={ride.id} className="text-sm border-b py-2 last:border-0">
+                            <div className="flex justify-between font-medium">
+                              <span>{ride.riderName}</span>
+                              <span className="text-green-600">₹{ride.fare}</span>
+                            </div>
+                            <div className="text-gray-500 text-xs">{ride.date} • {ride.destination}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </TabsContent>
                 </Tabs>
               </CardContent>
