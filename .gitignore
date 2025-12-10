@@ -47,3 +47,5 @@ Thumbs.db
 
 *.env
 *.dockerignore
+
+frontend/.env.local
