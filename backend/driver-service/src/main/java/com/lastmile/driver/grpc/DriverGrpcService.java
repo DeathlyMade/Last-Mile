@@ -39,14 +39,21 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
         String destination = request.getDestination();
         int availableSeats = request.getAvailableSeats();
         List<String> metroStations = new ArrayList<>(request.getMetroStationsList());
-        Driver driver = driverRepository.findById(driverId).orElse(new Driver());
-        driver.setDriverId(driverId);
-        driver.setRouteId(UUID.randomUUID().toString());
-        driver.setDestination(destination);
-        driver.setAvailableSeats(availableSeats);
-        driver.setMetroStations(metroStations);
+        // Use atomic update to prevent overwriting location
+        Query query = new Query(Criteria.where("_id").is(driverId));
+        Update update = new Update()
+            .set("routeId", UUID.randomUUID().toString())
+            .set("destination", destination)
+            .set("availableSeats", availableSeats)
+            .set("metroStations", metroStations);
+            
+        mongoTemplate.upsert(query, update, Driver.class);
         
-        driver = driverRepository.save(driver);
+        // Fetch fresh driver to return routeID (technically we just generated it, but good to be consistent)
+        Driver driver = driverRepository.findById(driverId).orElse(new Driver()); 
+
+        // If driver was just made by upsert, ensure ID is set (Mongo might do this but explicit is safe for object ref)
+        driver.setDriverId(driverId);
         
         RegisterRouteResponse response = RegisterRouteResponse.newBuilder()
                 .setRouteId(driver.getRouteId())

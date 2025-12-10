@@ -60,9 +60,9 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
         return MetadataUtils.attachHeaders(stub, headers);
     }
 
-    private void publishMatchUpdate(String riderId, String matchId, String status, String driverId, String tripId) {
+    private void publishMatchUpdate(String riderId, String matchId, String status, String driverId, String tripId, int fare) {
         String channel = "match-status:" + riderId;
-        String message = matchId + "," + status + "," + (driverId != null ? driverId : "") + "," + (tripId != null ? tripId : "");
+        String message = matchId + "," + status + "," + (driverId != null ? driverId : "") + "," + (tripId != null ? tripId : "") + "," + fare;
         redisTemplate.convertAndSend(channel, message);
     }
 
@@ -138,7 +138,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                     matchRepository.save(match);
 
                     notifyDriver(driverId, match.getRiderId(), match.getMatchId(), token); // Pass token
-                    publishMatchUpdate(match.getRiderId(), match.getMatchId(), "MATCHED", driverId, null);
+                    publishMatchUpdate(match.getRiderId(), match.getMatchId(), "MATCHED", driverId, null, fare);
                     publishDriverMatchRequest(driverId, match.getMatchId(), match.getRiderId(), pickup, dest, fare);
                 }
             }
@@ -199,7 +199,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                 matchRepository.save(match);
 
                 notifyDriver(matchedDriver.getDriverId(), riderId, matchId, null);
-                publishMatchUpdate(riderId, matchId, "MATCHED", matchedDriver.getDriverId(), null);
+                publishMatchUpdate(riderId, matchId, "MATCHED", matchedDriver.getDriverId(), null, fare);
                 publishDriverMatchRequest(matchedDriver.getDriverId(), matchId, riderId, metroStation, destination, fare);
                 
                 responseBuilder.setMatchId(matchId)
@@ -234,6 +234,10 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                     String statusStr = parts[1];
                     String driverId = parts.length > 2 ? parts[2] : "";
                     String tripId = parts.length > 3 ? parts[3] : "";
+                    int fare = 0;
+                    if (parts.length > 4) {
+                        try { fare = Integer.parseInt(parts[4]); } catch (Exception e) {}
+                    }
                     
                     MatchStatus status = MatchStatus.PENDING;
                     try { status = MatchStatus.valueOf(statusStr); } catch (Exception e) {}
@@ -243,6 +247,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                             .setStatus(status)
                             .setDriverId(driverId)
                             .setTripId(tripId)
+                            .setFare(fare)
                             .setSuccess(true)
                             .build();
                             
@@ -290,7 +295,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                     if (tripResponse.getSuccess()) {
                         match.setStatus("CONFIRMED");
                         matchRepository.save(match);
-                        publishMatchUpdate(match.getRiderId(), matchId, "CONFIRMED", match.getDriverId(), tripResponse.getTripId());
+                        publishMatchUpdate(match.getRiderId(), matchId, "CONFIRMED", match.getDriverId(), tripResponse.getTripId(), match.getFare());
                         
                         responseBuilder.setSuccess(true)
                                 .setMessage("Match accepted and trip created");
@@ -399,7 +404,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                 Match match = matchOpt.get();
                 match.setStatus("CANCELLED");
                 matchRepository.save(match);
-                publishMatchUpdate(riderId, matchId, "CANCELLED", null, null);
+                publishMatchUpdate(riderId, matchId, "CANCELLED", null, null, 0);
                 responseBuilder.setSuccess(true)
                         .setMessage("Match cancelled successfully"); 
 
@@ -497,10 +502,15 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                 double stationLon = stationInfo.getStation().getLongitude();
                 double driverLat = driver.getCurrentLocation().getLatitude();
                 double driverLon = driver.getCurrentLocation().getLongitude();
-                
+                System.out.println("DEBUG: Driver location: " + driverLat + ", " + driverLon);
+                System.out.println("DEBUG: Station location: " + stationLat + ", " + stationLon);
+                if (driverLat == 0.0 && driverLon == 0.0) {
+                    System.out.println("DEBUG: Driver location is (0,0). Using default fallback fare.");
+                    return 50; // Fallback default
+                }
+
                 double rawFare = Math.abs(driverLat - stationLat) + Math.abs(driverLon - stationLon);
-                fare = (int) (rawFare * 10000);
-                if (fare < 10) fare = 10; 
+                fare = (int) (rawFare * 100);
             }
         } catch (Exception e) {
             System.err.println("Error calculating fare: " + e.getMessage());

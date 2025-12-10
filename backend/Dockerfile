@@ -12,7 +12,7 @@ COPY seed.py .
 COPY start.sh .
 
 # Make the shell script executable
-RUN chmod +x start.sh
+RUN sed -i 's/\r$//' start.sh && chmod +x start.sh
 
 # Override the default command to run our wrapper
 CMD ["./start.sh"]

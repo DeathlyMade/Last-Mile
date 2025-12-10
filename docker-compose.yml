@@ -258,9 +258,22 @@ services:
       - .:/app
     working_dir: /app
     command: >
-      bash -c "apt-get update && apt-get install -y protobuf-compiler &&
-      cd frontend && npm install && cd .. &&
-      bash ./generate-proto.sh"
+      bash -c "set -e &&
+      apt-get update && apt-get install -y protobuf-compiler &&
+      mkdir -p frontend/src/proto &&
+      rm -rf frontend/src/proto/* &&
+      npm install -g protoc-gen-ts protoc-gen-grpc-web &&
+      PROTOC_GEN_TS_PATH=$$(which protoc-gen-ts) &&
+      PROTOC_GEN_GRPC_WEB_PATH=$$(which protoc-gen-grpc-web) &&
+      echo \"Using TS plugin: $$PROTOC_GEN_TS_PATH\" &&
+      echo \"Using GRPC plugin: $$PROTOC_GEN_GRPC_WEB_PATH\" &&
+      mkdir -p frontend/src/proto/google/api &&
+      protoc -I=googleapis googleapis/google/api/annotations.proto googleapis/google/api/http.proto --plugin=protoc-gen-ts=\"$$PROTOC_GEN_TS_PATH\" --plugin=protoc-gen-grpc-web=\"$$PROTOC_GEN_GRPC_WEB_PATH\" --js_out=import_style=commonjs,binary:frontend/src/proto --ts_out=frontend/src/proto --grpc-web_out=import_style=typescript,mode=grpcwebtext:frontend/src/proto &&
+      protoc -I=backend/proto -I=googleapis --include_imports --include_source_info --descriptor_set_out=proto.pb backend/proto/*.proto &&
+      for proto_file in backend/proto/*.proto; do
+        echo \"Compiling $$proto_file...\" &&
+        protoc -I=backend/proto -I=googleapis \"$$proto_file\" --plugin=protoc-gen-ts=\"$$PROTOC_GEN_TS_PATH\" --plugin=protoc-gen-grpc-web=\"$$PROTOC_GEN_GRPC_WEB_PATH\" --js_out=import_style=commonjs,binary:frontend/src/proto --ts_out=frontend/src/proto --grpc-web_out=import_style=commonjs,mode=grpcwebtext:frontend/src/proto;
+      done"
     networks:
       - lastmile-network
 

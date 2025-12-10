@@ -59,6 +59,7 @@ message MonitorMatchStatusResponse {
   string trip_id = 5;
   bool success = 6;
   string message = 7;
+  int32 fare = 8;
 }
 
 message MatchRiderWithDriverRequest {

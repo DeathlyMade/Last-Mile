@@ -36,12 +36,14 @@ Thumbs.db
 *.log
 
 # Environment
-.env
-.env.local
+
+.local
 
 # Docker
-*.dockerignore
+
 
 # Kubernetes
 *.kubeconfig
 
+*.env
+*.dockerignore

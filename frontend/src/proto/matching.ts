@@ -115,6 +115,7 @@ export namespace com.lastmile.matching.proto {
             trip_id?: string;
             success?: boolean;
             message?: string;
+            fare?: number;
         }) {
             super();
             pb_1.Message.initialize(this, Array.isArray(data) ? data : [], 0, -1, [], this.#one_of_decls);
@@ -139,6 +140,9 @@ export namespace com.lastmile.matching.proto {
                 }
                 if ("message" in data && data.message != undefined) {
                     this.message = data.message;
+                }
+                if ("fare" in data && data.fare != undefined) {
+                    this.fare = data.fare;
                 }
             }
         }
@@ -184,6 +188,12 @@ export namespace com.lastmile.matching.proto {
         set message(value: string) {
             pb_1.Message.setField(this, 7, value);
         }
+        get fare() {
+            return pb_1.Message.getFieldWithDefault(this, 8, 0) as number;
+        }
+        set fare(value: number) {
+            pb_1.Message.setField(this, 8, value);
+        }
         static fromObject(data: {
             match_id?: string;
             driver_id?: string;
@@ -192,6 +202,7 @@ export namespace com.lastmile.matching.proto {
             trip_id?: string;
             success?: boolean;
             message?: string;
+            fare?: number;
         }): MonitorMatchStatusResponse {
             const message = new MonitorMatchStatusResponse({});
             if (data.match_id != null) {
@@ -215,6 +226,9 @@ export namespace com.lastmile.matching.proto {
             if (data.message != null) {
                 message.message = data.message;
             }
+            if (data.fare != null) {
+                message.fare = data.fare;
+            }
             return message;
         }
         toObject() {
@@ -226,6 +240,7 @@ export namespace com.lastmile.matching.proto {
                 trip_id?: string;
                 success?: boolean;
                 message?: string;
+                fare?: number;
             } = {};
             if (this.match_id != null) {
                 data.match_id = this.match_id;
@@ -248,6 +263,9 @@ export namespace com.lastmile.matching.proto {
             if (this.message != null) {
                 data.message = this.message;
             }
+            if (this.fare != null) {
+                data.fare = this.fare;
+            }
             return data;
         }
         serialize(): Uint8Array;
@@ -268,6 +286,8 @@ export namespace com.lastmile.matching.proto {
                 writer.writeBool(6, this.success);
             if (this.message.length)
                 writer.writeString(7, this.message);
+            if (this.fare != 0)
+                writer.writeInt32(8, this.fare);
             if (!w)
                 return writer.getResultBuffer();
         }
@@ -297,6 +317,9 @@ export namespace com.lastmile.matching.proto {
                         break;
                     case 7:
                         message.message = reader.readString();
+                        break;
+                    case 8:
+                        message.fare = reader.readInt32();
                         break;
                     default: reader.skipField();
                 }
