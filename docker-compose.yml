@@ -277,8 +277,66 @@ services:
     networks:
       - lastmile-network
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.2.0
+    container_name: lastmile-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - lastmile-network
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:9.2.0
+    container_name: lastmile-logstash
+    volumes:
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline
+    ports:
+      - "5044:5044"
+      - "5000:5000/tcp"
+      - "5000:5000/udp"
+      - "9600:9600"
+    environment:
+      LS_JAVA_OPTS: "-Xmx1g -Xms1g"
+    depends_on:
+      - elasticsearch
+    networks:
+      - lastmile-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.2.0
+    container_name: lastmile-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - lastmile-network
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:9.2.0
+    container_name: lastmile-filebeat
+    user: root
+    volumes:
+      - ./elk/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - logstash
+    networks:
+      - lastmile-network
+
 volumes:
   mongodb_data:
+    driver: local
+  elasticsearch_data:
     driver: local
 
 networks:

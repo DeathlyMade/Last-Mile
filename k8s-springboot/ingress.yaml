@@ -13,13 +13,13 @@ spec:
   - host: lastmile.local
     http:
       paths:
-      - path: /()(.*)
+      - path: /kibana(/|$)(.*)
         pathType: ImplementationSpecific
         backend:
           service:
-            name: frontend
+            name: kibana
             port:
-              number: 3000
+              number: 5601
       - path: /api(/|$)(.*)
         pathType: ImplementationSpecific
         backend:
@@ -27,3 +27,10 @@ spec:
             name: lastmile-gateway
             port:
               number: 8080
+      - path: /()(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 3000
