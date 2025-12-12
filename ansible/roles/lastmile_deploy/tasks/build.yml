@@ -15,8 +15,7 @@
     node:18-bullseye \
     /bin/bash -c "apt-get update && apt-get install -y protobuf-compiler && cd frontend && npm install && cd .. && ./generate-proto.sh && chown -R $(id -u):$(id -g) frontend/src/proto proto.pb frontend/node_modules"
   args:
-    chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
-  ignore_errors: yes 
+    chdir: "{{ playbook_dir }}/.."
 
 - name: Create ConfigMap for proto.pb
   shell: |
@@ -24,7 +23,7 @@
         kubectl create configmap proto-config --from-file=proto.pb=proto.pb --dry-run=client -o yaml | kubectl apply --validate=false -f -
     fi
   args:
-    chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
+    chdir: "{{ playbook_dir }}/.."
 
 # ------------------------------------------------------------------
 # 2. Build Docker Images (Targeting Minikube Docker Daemon)
@@ -32,7 +31,7 @@
 - name: Build Backend Services
   shell: |
     export DOCKER_TLS_VERIFY=1
-    export DOCKER_HOST="tcp://127.0.0.1:60496"
+    export DOCKER_HOST="tcp://127.0.0.1:32779"
     export DOCKER_CERT_PATH="/tmp/certs"
     docker build -t lastmile/{{ item.name }}:latest -f {{ item.file }} backend/
   loop:
@@ -45,22 +44,22 @@
     - { name: 'trip-service', file: 'backend/Dockerfile.trip' }
     - { name: 'notification-service', file: 'backend/Dockerfile.notification' }
   args:
-    chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
+    chdir: "{{ playbook_dir }}/.."
 
 - name: Build Redis Image
   shell: |
     export DOCKER_TLS_VERIFY=1
-    export DOCKER_HOST="tcp://127.0.0.1:60496"
+    export DOCKER_HOST="tcp://127.0.0.1:32779"
     export DOCKER_CERT_PATH="/tmp/certs"
     docker build -t lastmile/redis:latest backend/
   args:
-    chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
+    chdir: "{{ playbook_dir }}/.."
 
 - name: Build Frontend Image
   shell: |
     export DOCKER_TLS_VERIFY=1
-    export DOCKER_HOST="tcp://127.0.0.1:60496"
+    export DOCKER_HOST="tcp://127.0.0.1:32779"
     export DOCKER_CERT_PATH="/tmp/certs"
     docker build -t lastmile/new-frontend:latest -f frontend/Dockerfile .
   args:
-    chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
+    chdir: "{{ playbook_dir }}/.."
