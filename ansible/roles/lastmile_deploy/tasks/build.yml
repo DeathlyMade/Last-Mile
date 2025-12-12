@@ -7,11 +7,15 @@
 # ------------------------------------------------------------------
 # 1. Generate Proto Descriptor (needed for Gateway)
 # ------------------------------------------------------------------
+- name: Install Frontend Dependencies (for protoc plugins)
+  shell: npm install
+  args:
+    chdir: "{{ playbook_dir }}/../frontend"
+
 - name: Generate Proto Descriptor (proto.pb)
   shell: ./generate-proto.sh
   args:
-    chdir: "{{ playbook_dir }}/.."
-  ignore_errors: yes 
+    chdir: "{{ playbook_dir }}/.." 
 
 - name: Create ConfigMap for proto.pb
   shell: |
