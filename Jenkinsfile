@@ -29,7 +29,7 @@ pipeline {
                           -v $(pwd):/workspace \
                           -w /workspace \
                           node:18 \
-                          bash -c "apt-get update && apt-get install -y protobuf-compiler && cd frontend && npm install && cd .. && ./generate-proto.sh"
+                          bash -c "apt-get update && apt-get install -y protobuf-compiler && npm install -g grpc-tools && cd frontend && npm install && cd .. && ./generate-proto.sh"
                     '''
                 }
             }
@@ -41,8 +41,10 @@ pipeline {
                     echo "Building and Testing Backend Services..."
                     // Connect to Minikube Docker Daemon and run build script (which runs unit tests)
                     sh '''
-                        eval $(minikube -p minikube docker-env) && \
-                        cd backend && \
+                        set -e
+                        export MINIKUBE_IN_STYLE=false
+                        eval $(minikube -p minikube docker-env)
+                        cd backend
                         ./build-all.sh
                     '''
                 }
@@ -54,10 +56,12 @@ pipeline {
                 script {
                     echo "Building Frontend and Redis..."
                     sh '''
-                        eval $(minikube -p minikube docker-env) && \
-                        echo "Building Redis..." && \
-                        docker build -t lastmile/redis:latest backend/ && \
-                        echo "Building Frontend..." && \
+                        set -e
+                        export MINIKUBE_IN_STYLE=false
+                        eval $(minikube -p minikube docker-env)
+                        echo "Building Redis..."
+                        docker build -t lastmile/redis:latest backend/
+                        echo "Building Frontend..."
                         docker build -t lastmile/new-frontend:latest -f frontend/Dockerfile .
                     '''
                 }
