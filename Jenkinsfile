@@ -28,7 +28,7 @@ pipeline {
                         docker run --rm \
                           -v $(pwd):/workspace \
                           -w /workspace \
-                          node:18-alpine \
+                          node:18 \
                           sh -c "cd frontend && npm install && cd .. && ./generate-proto.sh"
                     '''
                 }
