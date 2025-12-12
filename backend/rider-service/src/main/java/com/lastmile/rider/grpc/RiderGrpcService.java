@@ -5,6 +5,8 @@ import com.lastmile.rider.proto.*;
 import com.lastmile.rider.repository.RiderRepository;
 import io.grpc.stub.StreamObserver;
 import net.devh.boot.grpc.server.service.GrpcService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -15,6 +17,8 @@ import java.util.*;
 
 @GrpcService
 public class RiderGrpcService extends RiderServiceGrpc.RiderServiceImplBase {
+    
+    private static final Logger log = LoggerFactory.getLogger(RiderGrpcService.class);
     
     @Autowired
     private RiderRepository riderRepository;
@@ -29,6 +33,9 @@ public class RiderGrpcService extends RiderServiceGrpc.RiderServiceImplBase {
         String metroStation = request.getMetroStation();
         String destination = request.getDestination();
         long arrivalTime = request.getArrivalTime();
+        
+        log.info("Ride request registration - riderId: {}, from: {}, to: {}", 
+            riderId, metroStation, destination);
         
         RegisterRideRequestResponse.Builder responseBuilder = RegisterRideRequestResponse.newBuilder();
         
@@ -47,6 +54,7 @@ public class RiderGrpcService extends RiderServiceGrpc.RiderServiceImplBase {
                 if (status != Rider.RideRequest.RideStatus.COMPLETED && 
                     status != Rider.RideRequest.RideStatus.CANCELLED) {
                     
+                    log.warn("Ride request rejected - rider already has active request: riderId: {}", riderId);
                     responseBuilder.setSuccess(false)
                             .setMessage("You already have an active ride request. Please cancel it first.");
                     responseObserver.onNext(responseBuilder.build());
@@ -67,10 +75,14 @@ public class RiderGrpcService extends RiderServiceGrpc.RiderServiceImplBase {
             
             riderRepository.save(rider);
             
+            log.info("Ride request registered successfully - riderId: {}, requestId: {}, station: {}", 
+                riderId, rideRequest.getRideRequestId(), metroStation);
+            
             responseBuilder.setRideRequestId(rideRequest.getRideRequestId())
                     .setSuccess(true)
                     .setMessage("Ride request registered successfully");
         } catch (Exception e) {
+            log.error("Failed to register ride request - riderId: {}", riderId, e);
             responseBuilder.setSuccess(false)
                     .setMessage(e.getMessage());
         }
@@ -115,6 +127,8 @@ public class RiderGrpcService extends RiderServiceGrpc.RiderServiceImplBase {
                                  StreamObserver<CancelRideRequestResponse> responseObserver) {
         String riderId = request.getRiderId();
         
+        log.info("Cancelling ride request - riderId: {}", riderId);
+        
         CancelRideRequestResponse.Builder responseBuilder = CancelRideRequestResponse.newBuilder();
         
         try {
@@ -124,12 +138,15 @@ public class RiderGrpcService extends RiderServiceGrpc.RiderServiceImplBase {
                 rider.setCurrentRideRequest(null);
                 riderRepository.save(rider);
                 
+                log.info("Ride request cancelled successfully - riderId: {}", riderId);
                 responseBuilder.setSuccess(true)
                         .setMessage("Ride request cancelled successfully");
             } else {
+                log.warn("Cancel failed - no active ride request: riderId: {}", riderId);
                 responseBuilder.setSuccess(false).setMessage("No active ride request found to cancel");
             }
         } catch (Exception e) {
+            log.error("Failed to cancel ride request - riderId: {}", riderId, e);
             responseBuilder.setSuccess(false)
                     .setMessage(e.getMessage());
         }
@@ -216,15 +233,20 @@ public class RiderGrpcService extends RiderServiceGrpc.RiderServiceImplBase {
                 rr.setDriverId(driverId);
                 rr.setTripId(tripId);
                 rr.setDriverName(driverName);
-                System.out.println("Rider matched with driver successfully");   
+                
                 riderRepository.save(rider);
+                
+                log.info("Rider matched with driver - riderId: {}, driverId: {}, tripId: {}", 
+                    riderId, driverId, tripId);
                 
                 responseBuilder.setSuccess(true)
                         .setMessage("Rider matched with driver successfully");
             } else {
+                log.warn("Match failed - rider or request not found: riderId: {}", riderId);
                 responseBuilder.setSuccess(false).setMessage("Rider or active request not found");
             }
         } catch (Exception e) {
+            log.error("Failed to match rider with driver - riderId: {}", riderId, e);
             responseBuilder.setSuccess(false).setMessage(e.getMessage());
         }
         
@@ -237,6 +259,8 @@ public class RiderGrpcService extends RiderServiceGrpc.RiderServiceImplBase {
                           StreamObserver<RideStartedResponse> responseObserver) {
         String riderId = request.getRiderId();
         
+        log.info("Ride started - riderId: {}", riderId);
+        
         RideStartedResponse.Builder responseBuilder = RideStartedResponse.newBuilder();
         
         try {
@@ -248,12 +272,15 @@ public class RiderGrpcService extends RiderServiceGrpc.RiderServiceImplBase {
                 
                 riderRepository.save(rider);
                 
+                log.info("Ride status updated to IN_PROGRESS - riderId: {}", riderId);
                 responseBuilder.setSuccess(true)
                         .setMessage("Ride started successfully");
             } else {
+                log.warn("Ride start failed - rider or request not found: riderId: {}", riderId);
                 responseBuilder.setSuccess(false).setMessage("Rider or active request not found");
             }
         } catch (Exception e) {
+            log.error("Failed to start ride - riderId: {}", riderId, e);
             responseBuilder.setSuccess(false).setMessage(e.getMessage());
         }
         
@@ -267,6 +294,8 @@ public class RiderGrpcService extends RiderServiceGrpc.RiderServiceImplBase {
         String riderId = request.getRiderId();
         long dropoffTime = request.getDropoffTime();
         int fare = request.getFare();
+        
+        log.info("Completing ride - riderId: {}, fare: {}", riderId, fare);
         
         RideCompletedResponse.Builder responseBuilder = RideCompletedResponse.newBuilder();
         
@@ -289,12 +318,17 @@ public class RiderGrpcService extends RiderServiceGrpc.RiderServiceImplBase {
                 
                 riderRepository.save(rider);
                 
+                log.info("Ride completed successfully - riderId: {}, totalRides: {}, fare: {}", 
+                    riderId, rider.getTotalRides(), fare);
+                
                 responseBuilder.setSuccess(true)
                         .setMessage("Ride completed successfully");
             } else {
+                log.warn("Ride completion failed - rider or request not found: riderId: {}", riderId);
                 responseBuilder.setSuccess(false).setMessage("Rider or active request not found");
             }
         } catch (Exception e) {
+            log.error("Failed to complete ride - riderId: {}", riderId, e);
             responseBuilder.setSuccess(false).setMessage(e.getMessage());
         }
         

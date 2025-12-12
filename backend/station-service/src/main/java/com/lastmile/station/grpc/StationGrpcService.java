@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lastmile.station.proto.*;
 import io.grpc.stub.StreamObserver;
 import net.devh.boot.grpc.server.service.GrpcService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.geo.Circle;
 import org.springframework.data.geo.Distance;
@@ -21,6 +23,8 @@ import java.util.stream.Collectors;
 
 @GrpcService
 public class StationGrpcService extends StationServiceGrpc.StationServiceImplBase {
+
+    private static final Logger log = LoggerFactory.getLogger(StationGrpcService.class);
 
     @Autowired
     private StringRedisTemplate redisTemplate;

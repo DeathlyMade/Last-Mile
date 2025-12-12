@@ -4,11 +4,15 @@ import com.lastmile.notification.proto.*;
 import com.lastmile.notification.model.Notification;
 import io.grpc.stub.StreamObserver;
 import net.devh.boot.grpc.server.service.GrpcService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 
 @GrpcService
 public class NotificationGrpcService extends NotificationServiceGrpc.NotificationServiceImplBase {
+    
+    private static final Logger log = LoggerFactory.getLogger(NotificationGrpcService.class);
     
     @Autowired
     private RedisTemplate<String, Notification> redisTemplate;
