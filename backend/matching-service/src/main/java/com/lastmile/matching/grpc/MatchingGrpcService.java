@@ -14,12 +14,16 @@ import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import net.devh.boot.grpc.server.service.GrpcService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.*;
 
 @GrpcService
 public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImplBase {
+    
+    private static final Logger log = LoggerFactory.getLogger(MatchingGrpcService.class);
     
     @Autowired
     private MatchRepository matchRepository;
@@ -171,6 +175,8 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
         String destination = request.getDestination();
         String rideRequestId = request.getRideRequestId();
         
+        log.info("Matching request - riderId: {}, from: {}, to: {}", riderId, metroStation, destination);
+        
         MatchRiderWithDriverResponse.Builder responseBuilder = MatchRiderWithDriverResponse.newBuilder();
         
         try {
@@ -187,6 +193,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                 match.setTimestamp(System.currentTimeMillis());
                 matchRepository.save(match);
                 System.out.println("DEBUG: Match saved as PENDING: " + match);
+                log.info("No driver available - match queued as PENDING: riderId: {}, matchId: {}", riderId, rideRequestId);
                 responseBuilder.setMatchId(rideRequestId)
                         .setSuccess(true)
                         .setMessage("Request queued, waiting for driver");
@@ -216,12 +223,16 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                 publishMatchUpdate(riderId, matchId, "MATCHED", matchedDriver.getDriverId(), null, fare);
                 publishDriverMatchRequest(matchedDriver.getDriverId(), matchId, riderId, metroStation, destination, fare);
                 
+                log.info("Match found - riderId: {}, driverId: {}, matchId: {}, fare: {}", 
+                    riderId, matchedDriver.getDriverId(), matchId, fare);
+                
                 responseBuilder.setMatchId(matchId)
                         .setDriverId(matchedDriver.getDriverId())
                         .setSuccess(true)
                         .setMessage("Match found, waiting for driver confirmation");
             }
         } catch (Exception e) {
+            log.error("Error during matching - riderId: {}", riderId, e);
             responseBuilder.setSuccess(false)
                     .setMessage("Error matching: " + e.getMessage());
         }
@@ -287,6 +298,8 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
         String matchId = request.getMatchId();
         String driverId = request.getDriverId();
         
+        log.info("Driver accepting match - driverId: {}, matchId: {}", driverId, matchId);
+        
         AcceptMatchResponse.Builder responseBuilder = AcceptMatchResponse.newBuilder();
         
         try {
@@ -311,9 +324,13 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                         matchRepository.save(match);
                         publishMatchUpdate(match.getRiderId(), matchId, "CONFIRMED", match.getDriverId(), tripResponse.getTripId(), match.getFare());
                         
+                        log.info("Match accepted and trip created - driverId: {}, riderId: {}, tripId: {}", 
+                            driverId, match.getRiderId(), tripResponse.getTripId());
+                        
                         responseBuilder.setSuccess(true)
                                 .setMessage("Match accepted and trip created");
                     } else {
+                        log.warn("Trip creation failed for match - matchId: {}, driverId: {}", matchId, driverId);
                         responseBuilder.setSuccess(false)
                                 .setMessage("Failed to create trip: " + tripResponse.getMessage());
                     }
@@ -324,6 +341,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                 responseBuilder.setSuccess(false).setMessage("Match not found");
             }
         } catch (Exception e) {
+            log.error("Error accepting match - matchId: {}, driverId: {}", matchId, driverId, e);
             responseBuilder.setSuccess(false).setMessage("Error accepting match: " + e.getMessage());
         }
         
@@ -335,6 +353,8 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
     public void declineMatch(DeclineMatchRequest request, StreamObserver<DeclineMatchResponse> responseObserver) {
         String matchId = request.getMatchId();
         String driverId = request.getDriverId();
+        
+        log.info("Driver declining match - driverId: {}, matchId: {}", driverId, matchId);
         
         DeclineMatchResponse.Builder responseBuilder = DeclineMatchResponse.newBuilder();
         
@@ -357,11 +377,15 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
                         
                         notifyDriver(newDriver.getDriverId(), match.getRiderId(), matchId, null);
                         
+                        log.info("Match declined and reassigned - oldDriver: {}, newDriver: {}, matchId: {}", 
+                            driverId, newDriver.getDriverId(), matchId);
+                        
                         responseBuilder.setSuccess(true).setMessage("Match declined, reassigned to new driver");
                     } else {
                         // No new driver found, cancel match
                         match.setStatus("PENDING");
                         matchRepository.save(match);
+                        log.warn("Match declined, no replacement driver found - matchId: {}, driverId: {}", matchId, driverId);
                         responseBuilder.setSuccess(true).setMessage("Match declined, no new driver found");
                     }
                 } else {

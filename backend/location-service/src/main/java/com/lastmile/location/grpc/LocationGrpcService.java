@@ -3,6 +3,8 @@ package com.lastmile.location.grpc;
 import com.lastmile.location.proto.*;
 import io.grpc.stub.StreamObserver;
 import net.devh.boot.grpc.server.service.GrpcService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 
@@ -11,6 +13,8 @@ import java.util.stream.Collectors;
 
 @GrpcService
 public class LocationGrpcService extends LocationServiceGrpc.LocationServiceImplBase {
+    
+    private static final Logger log = LoggerFactory.getLogger(LocationGrpcService.class);
     
     @Autowired
     private RedisTemplate<String, String> redisTemplate;

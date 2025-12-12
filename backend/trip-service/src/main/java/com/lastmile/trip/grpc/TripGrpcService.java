@@ -12,12 +12,16 @@ import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
 import net.devh.boot.grpc.server.service.GrpcService;
 import net.devh.boot.grpc.client.inject.GrpcClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.*;
 
 @GrpcService
 public class TripGrpcService extends TripServiceGrpc.TripServiceImplBase {
+    
+    private static final Logger log = LoggerFactory.getLogger(TripGrpcService.class);
     
     @Autowired
     private TripRepository tripRepository;
@@ -68,6 +72,9 @@ public class TripGrpcService extends TripServiceGrpc.TripServiceImplBase {
         String destination = request.getDestination();
         String matchId = request.getMatchId();
         int fare = request.getFare();
+        
+        log.info("Creating trip - driverId: {}, riderId: {}, pickup: {}, dest: {}", 
+            driverId, riderId, pickupStation, destination);
         
         CreateTripResponse.Builder responseBuilder = CreateTripResponse.newBuilder();
         
@@ -161,10 +168,13 @@ public class TripGrpcService extends TripServiceGrpc.TripServiceImplBase {
                 System.err.println("Failed to notify rider: " + e.getMessage());
             }
             System.out.println("Trip created successfully");    
+            log.info("Trip created successfully - tripId: {}, driverId: {}, riderId: {}", 
+                trip.getTripId(), driverId, riderId);
             responseBuilder.setTripId(trip.getTripId())
                     .setSuccess(true)
                     .setMessage("Trip created successfully");
         } catch (Exception e) {
+            log.error("Failed to create trip - driverId: {}, riderId: {}", driverId, riderId, e);
             responseBuilder.setSuccess(false)
                     .setMessage(e.getMessage());
         }
@@ -218,6 +228,9 @@ public class TripGrpcService extends TripServiceGrpc.TripServiceImplBase {
             trip.setPickupTime(System.currentTimeMillis());
             trip.setStatus(Trip.TripStatus.ACTIVE);
             tripRepository.save(trip);
+            
+            log.info("Pickup recorded - tripId: {}, driverId: {}, riderId: {}", 
+                tripId, trip.getDriverId(), trip.getRiderId());
 
 
 
@@ -271,6 +284,9 @@ public class TripGrpcService extends TripServiceGrpc.TripServiceImplBase {
                 trip.setFare(fare);
             }
             tripRepository.save(trip);
+            
+            log.info("Dropoff recorded - tripId: {}, fare: {}, driverId: {}, riderId: {}", 
+                tripId, trip.getFare(), trip.getDriverId(), trip.getRiderId());
 
 
 

@@ -6,6 +6,8 @@ import com.lastmile.driver.repository.DriverRepository;
 import io.grpc.stub.StreamObserver;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import net.devh.boot.grpc.server.service.GrpcService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -19,6 +21,8 @@ import java.util.*;
 
 @GrpcService
 public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
+    
+    private static final Logger log = LoggerFactory.getLogger(DriverGrpcService.class);
     
     @Autowired
     private DriverRepository driverRepository;
@@ -39,6 +43,10 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
         String destination = request.getDestination();
         int availableSeats = request.getAvailableSeats();
         List<String> metroStations = new ArrayList<>(request.getMetroStationsList());
+        
+        log.info("Route registration request - driverId: {}, destination: {}, seats: {}, stations: {}", 
+            driverId, destination, availableSeats, metroStations.size());
+        
         // Use atomic update to prevent overwriting location
         Query query = new Query(Criteria.where("_id").is(driverId));
         Update update = new Update()
@@ -55,6 +63,9 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
         // If driver was just made by upsert, ensure ID is set (Mongo might do this but explicit is safe for object ref)
         driver.setDriverId(driverId);
         
+        log.info("Route registered successfully - driverId: {}, routeId: {}, destination: {}", 
+            driverId, driver.getRouteId(), destination);
+        
         RegisterRouteResponse response = RegisterRouteResponse.newBuilder()
                 .setRouteId(driver.getRouteId())
                 .setSuccess(true)
@@ -67,9 +78,9 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
             String token = AuthInterceptor.AUTH_TOKEN_KEY.get();
             String event = "DRIVER_AVAILABLE," + driverId + "," + (token != null ? token : "");
             redisTemplate.convertAndSend("driver-events", event);
-            System.out.println("DEBUG: Published DRIVER_AVAILABLE event: " + event);
+            log.debug("Published DRIVER_AVAILABLE event for driver: {}", driverId);
         } catch (Exception e) {
-            System.err.println("Failed to publish driver availability event: " + e.getMessage());
+            log.error("Failed to publish driver availability event for driver: {}", driverId, e);
         }
         
         responseObserver.onNext(response);
@@ -83,6 +94,8 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
         double latitude = request.getLatitude();
         double longitude = request.getLongitude();
         
+        log.debug("Location update - driverId: {}, lat: {}, lng: {}", driverId, latitude, longitude);
+        
         Query query = new Query(Criteria.where("_id").is(driverId));
         Update update = new Update()
                 .set("currentLocation.latitude", latitude)
@@ -92,6 +105,7 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
         long modifiedCount = mongoTemplate.upsert(query, update, Driver.class).getModifiedCount();
         
         if (modifiedCount == 0 && !driverRepository.existsById(driverId)) {
+             log.warn("Location update failed - driver not found: {}", driverId);
              UpdateLocationResponse response = UpdateLocationResponse.newBuilder()
                     .setSuccess(false)
                     .setMessage("Driver not found")
@@ -101,6 +115,7 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
             return;
         }
         
+        log.info("Location updated successfully - driverId: {}", driverId);
         UpdateLocationResponse response = UpdateLocationResponse.newBuilder()
                 .setSuccess(true)
                 .setMessage("Location updated successfully")
@@ -113,9 +128,13 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
     @Override
     public void acceptTrip(AcceptTripRequest request, StreamObserver<AcceptTripResponse> responseObserver) {
         String driverId = request.getDriverId();
+        String tripId = request.getTripId();
+        
+        log.info("Trip accept request - driverId: {}, tripId: {}, riderId: {}, pickup: {}", 
+            driverId, tripId, request.getRiderId(), request.getPickupStation());
         
         Driver.TripRecord record = new Driver.TripRecord();
-        record.setTripId(request.getTripId());
+        record.setTripId(tripId);
         record.setRiderId(request.getRiderId());
         record.setRiderName(request.getRiderName());
         record.setRiderRating(request.getRiderRating());
@@ -131,18 +150,20 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
         
         long modifiedCount = mongoTemplate.updateFirst(query, update, Driver.class).getModifiedCount();
         
+        if (modifiedCount > 0) {
+            Driver driver = driverRepository.findById(driverId).orElse(null);
+            int availableSeats = driver != null ? driver.getAvailableSeats() : 0;
+            log.info("Trip accepted successfully - driverId: {}, tripId: {}, availableSeats: {}", 
+                driverId, tripId, availableSeats);
+        } else {
+            log.warn("Trip accept failed - driverId: {}, tripId: {} - no seats or driver not found", 
+                driverId, tripId);
+        }
+        
         AcceptTripResponse response = AcceptTripResponse.newBuilder()
                 .setSuccess(modifiedCount > 0)
                 .setMessage(modifiedCount > 0 ? "Trip accepted" : "Driver not found or no seats available")
                 .build();
-        
-        // write debug statements
-        System.out.println("Driver " + driverId + " accepted trip " + request.getTripId());
-        // print updated available seats
-        Driver driver = driverRepository.findById(driverId).orElse(null);
-        if (driver != null) {
-            System.out.println("Updated available seats: " + driver.getAvailableSeats());
-        }
 
         responseObserver.onNext(response);
         responseObserver.onCompleted();
@@ -152,6 +173,8 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
     public void startTrip(StartTripRequest request, StreamObserver<StartTripResponse> responseObserver) {
         String driverId = request.getDriverId();
         String tripId = request.getTripId();
+        
+        log.info("Starting trip - driverId: {}, tripId: {}", driverId, tripId);
 
         Query query = new Query(Criteria.where("_id").is(driverId)
                 .and("activeTrips.tripId").is(tripId));
@@ -160,6 +183,12 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
                 .set("activeTrips.$.pickupTimestamp", System.currentTimeMillis());
 
         long modifiedCount = mongoTemplate.updateFirst(query, update, Driver.class).getModifiedCount();
+        
+        if (modifiedCount > 0) {
+            log.info("Trip started successfully - driverId: {}, tripId: {}", driverId, tripId);
+        } else {
+            log.warn("Trip start failed - trip not found: driverId: {}, tripId: {}", driverId, tripId);
+        }
 
         StartTripResponse response = StartTripResponse.newBuilder()
                 .setSuccess(modifiedCount > 0)
@@ -174,9 +203,12 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
     public void completeActiveTrip(CompleteActiveTripRequest request, StreamObserver<CompleteActiveTripResponse> responseObserver) {
         String driverId = request.getDriverId();
         String tripId = request.getTripId();
+        
+        log.info("Completing trip - driverId: {}, tripId: {}", driverId, tripId);
 
         Driver driver = driverRepository.findById(driverId).orElse(null);
         if (driver == null) {
+             log.warn("Trip completion failed - driver not found: {}", driverId);
              CompleteActiveTripResponse response = CompleteActiveTripResponse.newBuilder()
                 .setSuccess(false).setMessage("Driver not found").build();
             responseObserver.onNext(response);
@@ -196,6 +228,8 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
         }
 
         if (tripToMove == null) {
+             log.warn("Trip completion failed - trip not found in active trips: driverId: {}, tripId: {}", 
+                 driverId, tripId);
              CompleteActiveTripResponse response = CompleteActiveTripResponse.newBuilder()
                 .setSuccess(false).setMessage("Trip not found in active trips").build();
             responseObserver.onNext(response);
@@ -216,25 +250,22 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
 
         long modifiedCount = mongoTemplate.updateFirst(query, update, Driver.class).getModifiedCount();
 
-        // --------------------------------------------------------------------------
-        // NEW: Publish Driver Available Event so Matching Service can process pending
-        // --------------------------------------------------------------------------
         if (modifiedCount > 0) {
+            log.info("Trip completed successfully - driverId: {}, tripId: {}, fare: {}", 
+                driverId, tripId, tripToMove.getFare());
+            
             try {
-                // Since this is a grpc call, we might not have the auth token easily available 
-                // unless we extracted it from Context or it was passed.
-                // For internal events, we might not strictly need the token if the listener is internal,
-                // but the listener uses it to call other services.
-                // We'll try to get it from the current context.
                 String token = AuthInterceptor.AUTH_TOKEN_KEY.get();
                 String event = "DRIVER_AVAILABLE," + driverId + "," + (token != null ? token : "");
                 redisTemplate.convertAndSend("driver-events", event);
-                System.out.println("DEBUG: Published DRIVER_AVAILABLE event after trip completion: " + event);
+                log.debug("Published DRIVER_AVAILABLE event after trip completion - driverId: {}", driverId);
             } catch (Exception e) {
-                System.err.println("Failed to publish driver availability event: " + e.getMessage());
+                log.error("Failed to publish driver availability event - driverId: {}", driverId, e);
             }
+        } else {
+            log.warn("Trip completion failed - state changed concurrently: driverId: {}, tripId: {}", 
+                driverId, tripId);
         }
-        // --------------------------------------------------------------------------
 
         CompleteActiveTripResponse response = CompleteActiveTripResponse.newBuilder()
                 .setSuccess(modifiedCount > 0)
