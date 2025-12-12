@@ -31,7 +31,7 @@
 - name: Build Backend Services
   shell: |
     export DOCKER_TLS_VERIFY=1
-    export DOCKER_HOST="tcp://127.0.0.1:32774"
+    export DOCKER_HOST="tcp://127.0.0.1:32779"
     export DOCKER_CERT_PATH="/tmp/certs"
     docker build -t lastmile/{{ item.name }}:latest -f {{ item.file }} backend/
   loop:
@@ -49,7 +49,7 @@
 - name: Build Redis Image
   shell: |
     export DOCKER_TLS_VERIFY=1
-    export DOCKER_HOST="tcp://127.0.0.1:32774"
+    export DOCKER_HOST="tcp://127.0.0.1:32779"
     export DOCKER_CERT_PATH="/tmp/certs"
     docker build -t lastmile/redis:latest backend/
   args:
@@ -58,7 +58,7 @@
 - name: Build Frontend Image
   shell: |
     export DOCKER_TLS_VERIFY=1
-    export DOCKER_HOST="tcp://127.0.0.1:32774"
+    export DOCKER_HOST="tcp://127.0.0.1:32779"
     export DOCKER_CERT_PATH="/tmp/certs"
     docker build -t lastmile/new-frontend:latest -f frontend/Dockerfile .
   args:
