@@ -16,7 +16,7 @@
 - name: Create ConfigMap for proto.pb
   shell: |
     if [ -f "proto.pb" ]; then
-        kubectl create configmap proto-config --from-file=proto.pb=proto.pb --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create configmap proto-config --from-file=proto.pb=proto.pb --dry-run=client -o yaml | kubectl apply --validate=false -f -
     fi
   args:
     chdir: "{{ playbook_dir }}/.."

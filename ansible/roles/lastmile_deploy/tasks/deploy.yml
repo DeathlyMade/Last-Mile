@@ -3,13 +3,13 @@
 # 4. Deployment Application
 # ------------------------------------------------------------------
 - name: Apply Kubernetes Manifests
-  command: kubectl apply -f "{{ playbook_dir }}/../k8s-deployment/"
+  command: kubectl apply --validate=false -f "{{ playbook_dir }}/../k8s-deployment/"
 
 - name: Apply Ingress
-  command: kubectl apply -f "{{ playbook_dir }}/../k8s-deployment/ingress.yaml"
+  command: kubectl apply --validate=false -f "{{ playbook_dir }}/../k8s-deployment/ingress.yaml"
 
 - name: Apply HPA (High Availability)
-  command: kubectl apply -f "{{ playbook_dir }}/../k8s-deployment/hpa.yaml"
+  command: kubectl apply --validate=false -f "{{ playbook_dir }}/../k8s-deployment/hpa.yaml"
 
 - name: Remove generated secrets file (security best practice)
   file:

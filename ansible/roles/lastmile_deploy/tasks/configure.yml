@@ -34,4 +34,4 @@
     kubectl create secret tls lastmile-tls \
       --key "{{ playbook_dir }}/../lastmile.key" \
       --cert "{{ playbook_dir }}/../lastmile.crt" \
-      --dry-run=client -o yaml | kubectl apply -f -
+      --dry-run=client -o yaml | kubectl apply --validate=false -f -
