@@ -5,7 +5,9 @@ COPY ./notification-service/pom.xml .
 COPY ./notification-service/src ./src
 RUN mvn clean package -DskipTests
 
-FROM eclipse-temurin:17-jre-alpine
+# Mac specific debugging: Alpine image not available for arm64
+# FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 50058

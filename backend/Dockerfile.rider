@@ -5,7 +5,9 @@ COPY ./rider-service/pom.xml .
 COPY ./rider-service/src ./src
 RUN mvn clean package -DskipTests
 
-FROM eclipse-temurin:17-jre-alpine
+# Mac specific debugging: Alpine image not available for arm64
+# FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 50054

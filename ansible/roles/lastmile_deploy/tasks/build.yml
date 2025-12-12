@@ -10,7 +10,7 @@
 - name: Generate Proto Descriptor (proto.pb)
   shell: ./generate-proto.sh
   args:
-    chdir: "{{ ansible_env.HOME }}/Last-Mile"
+    chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
   ignore_errors: yes 
 
 - name: Create ConfigMap for proto.pb
@@ -19,7 +19,7 @@
         kubectl create configmap proto-config --from-file=proto.pb=proto.pb --dry-run=client -o yaml | kubectl apply -f -
     fi
   args:
-    chdir: "{{ ansible_env.HOME }}/Last-Mile"
+    chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
 
 # ------------------------------------------------------------------
 # 2. Build Docker Images (Targeting Minikube Docker Daemon)
@@ -38,18 +38,18 @@
     - { name: 'trip-service', file: 'backend/Dockerfile.trip' }
     - { name: 'notification-service', file: 'backend/Dockerfile.notification' }
   args:
-    chdir: "{{ ansible_env.HOME }}/Last-Mile"
+    chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
 
 - name: Build Redis Image
   shell: |
     eval $(minikube -p minikube docker-env)
     docker build -t lastmile/redis:latest backend/
   args:
-    chdir: "{{ ansible_env.HOME }}/Last-Mile"
+    chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
 
 - name: Build Frontend Image
   shell: |
     eval $(minikube -p minikube docker-env)
     docker build -t lastmile/new-frontend:latest -f frontend/Dockerfile .
   args:
-    chdir: "{{ ansible_env.HOME }}/Last-Mile"
+    chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"

@@ -29,6 +29,9 @@
     - notification-service
     - lastmile-gateway
     - frontend
+    - elasticsearch
+    - kibana
+    - logstash
     # - redis
     # - mongodb
 
@@ -47,6 +50,9 @@
         - notification-service
         - lastmile-gateway
         - frontend
+        - elasticsearch
+        - kibana
+        - logstash
         - redis
         - mongodb
 
