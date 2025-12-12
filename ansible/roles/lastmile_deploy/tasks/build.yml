@@ -30,7 +30,9 @@
 # ------------------------------------------------------------------
 - name: Build Backend Services
   shell: |
-    eval $(minikube -p minikube docker-env)
+    export DOCKER_TLS_VERIFY=1
+    export DOCKER_HOST="tcp://127.0.0.1:32774"
+    export DOCKER_CERT_PATH="/tmp/certs"
     docker build -t lastmile/{{ item.name }}:latest -f {{ item.file }} backend/
   loop:
     - { name: 'station-service', file: 'backend/Dockerfile.station' }
@@ -46,14 +48,18 @@
 
 - name: Build Redis Image
   shell: |
-    eval $(minikube -p minikube docker-env)
+    export DOCKER_TLS_VERIFY=1
+    export DOCKER_HOST="tcp://127.0.0.1:32774"
+    export DOCKER_CERT_PATH="/tmp/certs"
     docker build -t lastmile/redis:latest backend/
   args:
     chdir: "{{ playbook_dir }}/.."
 
 - name: Build Frontend Image
   shell: |
-    eval $(minikube -p minikube docker-env)
+    export DOCKER_TLS_VERIFY=1
+    export DOCKER_HOST="tcp://127.0.0.1:32774"
+    export DOCKER_CERT_PATH="/tmp/certs"
     docker build -t lastmile/new-frontend:latest -f frontend/Dockerfile .
   args:
     chdir: "{{ playbook_dir }}/.."
