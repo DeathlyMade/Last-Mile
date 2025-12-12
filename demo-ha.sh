@@ -18,7 +18,7 @@ echo "Token injected."
 echo "Starting traffic loop (hitting Gateway)..."
 kubectl run ha-test-client --image=curlimages/curl --restart=Never -- /bin/sh -c '
   while true; do 
-    http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://lastmile-gateway:8080/match \
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://lastmile-gateway:8079/match \
       -H "Content-Type: application/json" \
       -H "Authorization: Bearer ha-test-token" \
       -d "{\"rider_id\": \"ha-test\", \"metro_station\": \"A\", \"destination\": \"B\", \"arrival_time\": 0}")

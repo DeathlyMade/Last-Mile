@@ -99,14 +99,13 @@ kubectl rollout status deployment/lastmile-gateway
 
 echo "Port forwarding services to localhost..."
 echo "Frontend: http://localhost:3000"
-echo "Gateway: http://localhost:8080"
+echo "Gateway: http://localhost:8079"
 echo "Press Ctrl+C to stop."
 
 # Trap Ctrl+C to kill all background processes
 trap "kill 0" SIGINT
 
 kubectl port-forward svc/frontend 3000:3000 &
-kubectl port-forward svc/lastmile-gateway 8080:8080 &
-kubectl port-forward svc/kibana 5601:5601 &
+kubectl port-forward svc/lastmile-gateway 8079:8079 &
 
 wait

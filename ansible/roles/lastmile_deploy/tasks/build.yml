@@ -1,14 +1,19 @@
 ---
 - name: Ensure deployment directory exists
   file:
-    path: "{{ ansible_env.HOME }}/k8s-deployment"
+    path: "{{ playbook_dir }}/../k8s-deployment"
     state: directory
 
 # ------------------------------------------------------------------
 # 1. Generate Proto Descriptor (needed for Gateway)
 # ------------------------------------------------------------------
-- name: Generate Proto Descriptor (proto.pb)
-  shell: ./generate-proto.sh
+- name: Generate Protos using Docker (bypass local node version issues)
+  shell: |
+    docker run --rm \
+    -v "{{ playbook_dir }}/..:/workspace" \
+    -w /workspace \
+    node:18-bullseye \
+    /bin/bash -c "apt-get update && apt-get install -y protobuf-compiler && cd frontend && npm install && cd .. && ./generate-proto.sh && chown -R $(id -u):$(id -g) frontend/src/proto proto.pb frontend/node_modules"
   args:
     chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
   ignore_errors: yes 
@@ -16,7 +21,7 @@
 - name: Create ConfigMap for proto.pb
   shell: |
     if [ -f "proto.pb" ]; then
-        kubectl create configmap proto-config --from-file=proto.pb=proto.pb --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create configmap proto-config --from-file=proto.pb=proto.pb --dry-run=client -o yaml | kubectl apply --validate=false -f -
     fi
   args:
     chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
@@ -26,7 +31,9 @@
 # ------------------------------------------------------------------
 - name: Build Backend Services
   shell: |
-    eval $(minikube -p minikube docker-env)
+    export DOCKER_TLS_VERIFY=1
+    export DOCKER_HOST="tcp://127.0.0.1:32779"
+    export DOCKER_CERT_PATH="/tmp/certs"
     docker build -t lastmile/{{ item.name }}:latest -f {{ item.file }} backend/
   loop:
     - { name: 'station-service', file: 'backend/Dockerfile.station' }
@@ -42,14 +49,18 @@
 
 - name: Build Redis Image
   shell: |
-    eval $(minikube -p minikube docker-env)
+    export DOCKER_TLS_VERIFY=1
+    export DOCKER_HOST="tcp://127.0.0.1:32779"
+    export DOCKER_CERT_PATH="/tmp/certs"
     docker build -t lastmile/redis:latest backend/
   args:
     chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
 
 - name: Build Frontend Image
   shell: |
-    eval $(minikube -p minikube docker-env)
+    export DOCKER_TLS_VERIFY=1
+    export DOCKER_HOST="tcp://127.0.0.1:32779"
+    export DOCKER_CERT_PATH="/tmp/certs"
     docker build -t lastmile/new-frontend:latest -f frontend/Dockerfile .
   args:
     chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
