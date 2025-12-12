@@ -12,9 +12,10 @@ pipeline {
 
         stage('Deploy with Ansible') {
             steps {
-                // Run the Ansible playbook
-                // Assumes ansible-playbook is available in the path
-                sh 'ansible-playbook ansible/playbook.yml -i ansible/inventory/hosts.ini'
+                // Run the Ansible playbook from the ansible directory to load ansible.cfg
+                dir('ansible') {
+                    sh 'ansible-playbook playbook.yml -i inventory/hosts.ini'
+                }
             }
         }
     }
