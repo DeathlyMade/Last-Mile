@@ -28,8 +28,10 @@ pipeline {
                         docker run --rm \
                           -v $(pwd):/workspace \
                           -w /workspace \
+                          -e HOST_UID=$(id -u) \
+                          -e HOST_GID=$(id -g) \
                           node:18 \
-                          bash -c "apt-get update && apt-get install -y protobuf-compiler && npm install -g grpc-tools && cd frontend && npm install && cd .. && ./generate-proto.sh"
+                          bash -c "apt-get update && apt-get install -y protobuf-compiler && npm install -g grpc-tools && cd frontend && npm install && cd .. && ./generate-proto.sh && chown -R \$(id -u):\$(id -g) ."
                     '''
                 }
             }
