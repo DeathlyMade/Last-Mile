@@ -25,4 +25,18 @@ pipeline {
             }
         }
     }
+    }
+
+    post {
+        success {
+            mail to: 'divyamsareen@gmail.com',
+                 subject: "Build Success: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: "The build finished successfully.\nSee: ${env.BUILD_URL}"
+        }
+        failure {
+            mail to: 'divyamsareen@gmail.com',
+                 subject: "Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: "The build failed.\nSee: ${env.BUILD_URL}"
+        }
+    }
 }
