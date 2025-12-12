@@ -2,6 +2,6 @@
 # Main task file for lastmile_deploy role
 # This file imports smaller, logical task files for better maintainability.
 
-# - import_tasks: build.yml
+- import_tasks: build.yml
 - import_tasks: configure.yml
 - import_tasks: deploy.yml
