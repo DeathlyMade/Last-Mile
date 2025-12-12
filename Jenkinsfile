@@ -23,11 +23,14 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    echo "Installing Frontend Dependencies..."
-                    sh 'cd frontend && npm install'
-                    
-                    echo "Generating Protos..."
-                    sh './generate-proto.sh'
+                    echo "Installing Frontend Dependencies and Generating Protos (using Node.js 18)..."
+                    sh '''
+                        docker run --rm \
+                          -v $(pwd):/workspace \
+                          -w /workspace \
+                          node:18-alpine \
+                          sh -c "cd frontend && npm install && cd .. && ./generate-proto.sh"
+                    '''
                 }
             }
         }
