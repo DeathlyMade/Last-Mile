@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        KUBECONFIG = '/home/divyamsareen/.kube/config'
+    }
+
     stages {
         stage('Checkout') {
             steps {
