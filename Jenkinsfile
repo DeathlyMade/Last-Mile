@@ -8,6 +8,8 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                // Clean workspace to remove any root-owned files from previous builds
+                cleanWs()
                 // Checkout from version control
                 // gitscmpoll requires a standard checkout or the 'git' step
                 checkout scm
