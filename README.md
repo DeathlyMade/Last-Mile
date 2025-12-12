@@ -77,6 +77,7 @@ All services communicate using **gRPC (Google RPC)** for inter-service communica
 - Redis 7+
 - gRPC tools (for testing) - optional
 
+## check for jenkins
 ## Local Development Setup
 
 ### 1. Start Infrastructure Services
