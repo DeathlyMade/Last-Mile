@@ -64,6 +64,7 @@ fi
 # Apply Manifests
 kubectl apply -f mongodb.yaml
 kubectl apply -f redis.yaml
+kubectl apply -f elk-stack.yaml
 kubectl apply -f station-service.yaml
 kubectl apply -f user-service.yaml
 kubectl apply -f driver-service.yaml

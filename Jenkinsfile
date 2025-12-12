@@ -3,6 +3,8 @@ pipeline {
 
     environment {
         KUBECONFIG = '/tmp/kubeconfig'
+        // PATH setup: Includes /opt/homebrew/bin (Apple Silicon) and /usr/local/bin (Intel Mac/Linux)
+        PATH = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
     }
 
     stages {

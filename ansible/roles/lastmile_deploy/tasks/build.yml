@@ -15,7 +15,8 @@
     node:18-bullseye \
     /bin/bash -c "apt-get update && apt-get install -y protobuf-compiler && cd frontend && npm install && cd .. && ./generate-proto.sh && chown -R $(id -u):$(id -g) frontend/src/proto proto.pb frontend/node_modules"
   args:
-    chdir: "{{ playbook_dir }}/.." 
+    chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
+  ignore_errors: yes 
 
 - name: Create ConfigMap for proto.pb
   shell: |
@@ -23,7 +24,7 @@
         kubectl create configmap proto-config --from-file=proto.pb=proto.pb --dry-run=client -o yaml | kubectl apply --validate=false -f -
     fi
   args:
-    chdir: "{{ playbook_dir }}/.."
+    chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
 
 # ------------------------------------------------------------------
 # 2. Build Docker Images (Targeting Minikube Docker Daemon)
@@ -44,7 +45,7 @@
     - { name: 'trip-service', file: 'backend/Dockerfile.trip' }
     - { name: 'notification-service', file: 'backend/Dockerfile.notification' }
   args:
-    chdir: "{{ playbook_dir }}/.."
+    chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
 
 - name: Build Redis Image
   shell: |
@@ -53,7 +54,7 @@
     export DOCKER_CERT_PATH="/tmp/certs"
     docker build -t lastmile/redis:latest backend/
   args:
-    chdir: "{{ playbook_dir }}/.."
+    chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
 
 - name: Build Frontend Image
   shell: |
@@ -62,4 +63,4 @@
     export DOCKER_CERT_PATH="/tmp/certs"
     docker build -t lastmile/new-frontend:latest -f frontend/Dockerfile .
   args:
-    chdir: "{{ playbook_dir }}/.."
+    chdir: "/Users/daksh15/SPE/SPE_FINAL_PROJECT/Last-Mile"
