@@ -63,6 +63,18 @@ else
     exit 1
 fi
 
+# 5. Enable Minikube Addons
+echo "[5/5] Enabling Minikube Addons (ingress, metrics-server)..."
+# Determine the user who invokes sudo
+REAL_USER=${SUDO_USER:-$USER}
+if [ "$REAL_USER" == "root" ]; then
+    echo "Warning: Cannot determine real user to run Minikube commands. Skipping addons."
+else
+    echo "      Running as user: $REAL_USER"
+    su - $REAL_USER -c "minikube addons enable ingress"
+    su - $REAL_USER -c "minikube addons enable metrics-server"
+fi
+
 echo "=========================================="
 echo "    Setup Complete!"
 echo "=========================================="

@@ -12,17 +12,17 @@
     src: ../../../../k8s-springboot/
     dest: "{{ playbook_dir }}/../k8s-deployment/"
 
-- name: Enable Ingress Addon (Minikube)
-  command: minikube addons enable ingress
-  ignore_errors: yes
+# - name: Enable Ingress Addon (Minikube) - SKIPPED (Run manually or via setup script)
+#   command: minikube addons enable ingress
+#   ignore_errors: yes
 
-- name: Wait for Ingress Controller to be Ready
-  command: kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=300s
-  ignore_errors: yes
+# - name: Wait for Ingress Controller to be Ready - SKIPPED
+#   command: kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=300s
+#   ignore_errors: yes
 
-- name: Enable Metrics Server (Required for HPA)
-  command: minikube addons enable metrics-server
-  ignore_errors: yes
+# - name: Enable Metrics Server (Required for HPA) - SKIPPED (Run manually or via setup script)
+#   command: minikube addons enable metrics-server
+#   ignore_errors: yes
 
 - name: Generate Self-Signed Certificate for HTTPS
   command: openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "{{ playbook_dir }}/../lastmile.key" -out "{{ playbook_dir }}/../lastmile.crt" -subj "/CN=lastmile.local"
