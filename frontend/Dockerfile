@@ -10,15 +10,8 @@ WORKDIR /app
 COPY frontend/package*.json ./
 
 # Install dependencies
-RUN npm install
-# Fix for Mac M1/M2 (ARM64) rollup issues - Force install the specific binary
-RUN npm install @rollup/rollup-linux-arm64-gnu --save-optional
-# Fix for SWC binding issue on ARM64
-RUN npm install @swc/core-linux-arm64-gnu --save-optional
-
-# Copy proto definitions
-COPY backend/proto /app/backend-proto
-COPY googleapis /app/googleapis
+# Install dependencies (ignoring lockfile to resolve platform mismatch)
+RUN rm -f package-lock.json && npm install
 
 # Copy source code
 COPY frontend/ .
