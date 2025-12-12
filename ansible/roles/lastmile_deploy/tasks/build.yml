@@ -7,13 +7,13 @@
 # ------------------------------------------------------------------
 # 1. Generate Proto Descriptor (needed for Gateway)
 # ------------------------------------------------------------------
-- name: Install Frontend Dependencies (for protoc plugins)
-  shell: npm install
-  args:
-    chdir: "{{ playbook_dir }}/../frontend"
-
-- name: Generate Proto Descriptor (proto.pb)
-  shell: ./generate-proto.sh
+- name: Generate Protos using Docker (bypass local node version issues)
+  shell: |
+    docker run --rm \
+    -v "{{ playbook_dir }}/..:/workspace" \
+    -w /workspace \
+    node:18-bullseye \
+    /bin/bash -c "apt-get update && apt-get install -y protobuf-compiler && cd frontend && npm install && cd .. && ./generate-proto.sh && chown -R $(id -u):$(id -g) frontend/src/proto proto.pb frontend/node_modules"
   args:
     chdir: "{{ playbook_dir }}/.." 
 
