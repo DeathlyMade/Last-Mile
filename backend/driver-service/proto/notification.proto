@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package com.lastmile.notification.proto;
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";          
+import "google/protobuf/empty.proto"; 
+
+option java_multiple_files = true;
+option java_package = "com.lastmile.notification.proto";
+option java_outer_classname = "NotificationProto";
+
+service NotificationService {
+  rpc SendNotification(SendNotificationRequest) returns (SendNotificationResponse);
+  rpc SendMatchNotification(SendMatchNotificationRequest) returns (SendMatchNotificationResponse);
+}
+
+message SendNotificationRequest {
+  string user_id = 1;
+  string message = 2;
+  NotificationType type = 3;
+}
+
+message SendNotificationResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message SendMatchNotificationRequest {
+  string driver_id = 1;
+  string rider_id = 2;
+  string match_id = 3;
+}
+
+message SendMatchNotificationResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+enum NotificationType {
+  MATCH = 0;
+  PICKUP = 1;
+  DROPOFF = 2;
+  STATUS_UPDATE = 3;
+}
+

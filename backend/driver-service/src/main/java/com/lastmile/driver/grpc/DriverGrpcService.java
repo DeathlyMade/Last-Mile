@@ -116,6 +116,17 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
         }
         
         log.info("Location updated successfully - driverId: {}", driverId);
+        
+        // Notify Matching Service about driver availability (location update)
+        try {
+            String token = AuthInterceptor.AUTH_TOKEN_KEY.get();
+            String event = "DRIVER_AVAILABLE," + driverId + "," + (token != null ? token : "");
+            redisTemplate.convertAndSend("driver-events", event);
+            log.info("Published DRIVER_AVAILABLE event for driver location update: {}", driverId);
+        } catch (Exception e) {
+            log.error("Failed to publish driver availability event for driver: {}", driverId, e);
+        }
+
         UpdateLocationResponse response = UpdateLocationResponse.newBuilder()
                 .setSuccess(true)
                 .setMessage("Location updated successfully")
@@ -324,7 +335,13 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
              drivers = driverRepository.findByMetroStationsContaining(station);
         }
         
-        List<DriverInfo> driverInfos = drivers.stream().map(driver -> {
+        long now = System.currentTimeMillis();
+        long activeThreshold = 60000; // 60 seconds
+
+        List<DriverInfo> driverInfos = drivers.stream()
+            .filter(driver -> driver.getCurrentLocation() != null && 
+                             (now - driver.getCurrentLocation().getTimestamp() < activeThreshold))
+            .map(driver -> {
             DriverInfo.Builder infoBuilder = DriverInfo.newBuilder()
                     .setDriverId(driver.getDriverId())
                     .setDestination(driver.getDestination() != null ? driver.getDestination() : "")
@@ -522,14 +539,12 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
         io.grpc.stub.ServerCallStreamObserver<MonitorDriverDashboardResponse> serverObserver = 
             (io.grpc.stub.ServerCallStreamObserver<MonitorDriverDashboardResponse>) responseObserver;
 
-        // Send initial state (Active Trips)
+        // Send initial state (Active Trips) - ALWAYS send to establish stream headers for Envoy
         List<TripInfo> activeTrips = getActiveTripsForDriver(driverId);
-        if (!activeTrips.isEmpty()) {
-            MonitorDriverDashboardResponse initialResponse = MonitorDriverDashboardResponse.newBuilder()
-                .addAllActiveTrips(activeTrips)
-                .build();
-            responseObserver.onNext(initialResponse);
-        }
+        MonitorDriverDashboardResponse initialResponse = MonitorDriverDashboardResponse.newBuilder()
+            .addAllActiveTrips(activeTrips)
+            .build();
+        responseObserver.onNext(initialResponse);
 
         // Create a thread pool for processing messages to avoid blocking the Redis listener thread
         java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newCachedThreadPool();
@@ -538,7 +553,7 @@ public class DriverGrpcService extends DriverServiceGrpc.DriverServiceImplBase {
             executor.submit(() -> {
                 try {
                     String body = new String(message.getBody());
-                    System.out.println("DEBUG: Received Redis message for driver " + driverId + ": " + body);
+                    log.info("Received Redis message for driver {}: {}", driverId, body);
                     String[] parts = body.split(",", 2);
                     
                     if (parts.length >= 2) {

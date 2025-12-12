@@ -73,7 +73,7 @@ public class MatchingGrpcService extends MatchingServiceGrpc.MatchingServiceImpl
     private void publishDriverMatchRequest(String driverId, String matchId, String riderId, String pickup, String dest, int fare) {
         String channel = "driver-dashboard:" + driverId;
         String message = "MATCH_REQUEST," + matchId + "::" + riderId + "::" + pickup + "::" + fare + "::" + dest;
-        System.out.println("DEBUG: Publishing MATCH_REQUEST to " + channel + ": " + message);
+        log.info("Publishing MATCH_REQUEST to {}: {}", channel, message);
         redisTemplate.convertAndSend(channel, message);
     }
 

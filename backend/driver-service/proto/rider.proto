@@ -1,0 +1,210 @@
+syntax = "proto3";
+
+package com.lastmile.rider.proto;
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";          // <--- REQUIRED for envoy transcoder
+import "google/protobuf/empty.proto"; 
+
+option java_multiple_files = true;
+option java_package = "com.lastmile.rider.proto";
+option java_outer_classname = "RiderProto";
+
+service RiderService {
+  rpc RegisterRideRequest(RegisterRideRequestRequest) returns (RegisterRideRequestResponse){
+    option (google.api.http) = {
+      post: "/rider/ride-register/{rider_id}"
+      body: "*"
+    };
+  };
+
+  rpc GetRideStatus(GetRideStatusRequest) returns (GetRideStatusResponse){
+    option (google.api.http) = {
+      get: "/rider/ride-status/{rider_id}"
+    };
+  };
+
+  rpc ListRideRequests(ListRideRequestsRequest) returns (ListRideRequestsResponse) {
+    option (google.api.http) = {
+      get: "/rider/ride-requests/{rider_id}"
+    };
+  };
+
+  rpc GetRiderDashboard(GetRiderDashboardRequest) returns (GetRiderDashboardResponse){
+    option (google.api.http) = {
+      get: "/rider/dashboard/{rider_id}"
+    };
+  };
+
+  // called from Trip service to get rider info
+  rpc GetRiderInfo(GetRiderInfoRequest) returns (GetRiderInfoResponse);  
+
+  // Cancel an active ride request called from Matching Service
+  rpc CancelRideRequest(CancelRideRequestRequest) returns (CancelRideRequestResponse);
+
+  // Rate a driver at end of trip called from Trip Service
+  rpc RateDriver(RateDriverRequest) returns (RateDriverResponse);
+
+  // Set rating for rider from driver at end of trip called from Trip Service
+  rpc SetRatingFromDriver(SetRatingFromDriverRequest) returns (SetRatingFromDriverResponse);
+
+  // Notify rider that they have been matched with a driver called from Trip Service
+  rpc MatchedWithDriver (MatchedWithDriverRequest) returns (MatchedWithDriverResponse);
+
+  // Notify rider that their ride has started called from Trip Service
+  rpc RideStarted (RideStartedRequest) returns (RideStartedResponse);
+
+  // Notify rider that their ride has completed called from Trip Service
+  rpc RideCompleted (RideCompletedRequest) returns (RideCompletedResponse);
+
+}
+
+message RegisterRideRequestRequest {
+  string rider_id = 1;
+  string metro_station = 2;
+  string destination = 3;
+  int64 arrival_time = 4;
+}
+
+message RegisterRideRequestResponse {
+  string ride_request_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message GetRideStatusRequest {
+  string rider_id = 1;
+}
+
+message GetRideStatusResponse {
+  string ride_request_id = 1;
+  RideStatus status = 2;
+  string driver_id = 3;
+  string trip_id = 4;
+  bool success = 5;
+  string message = 6;
+}
+
+message CancelRideRequestRequest {
+  string rider_id = 1;
+}
+
+message CancelRideRequestResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message RideRequestItem {
+  string ride_request_id = 1;
+  string rider_id = 2;
+  string metro_station = 3;
+  string destination = 4;
+  int64 arrival_time = 5;
+  RideStatus status = 6;
+  string driver_id = 7;
+  string trip_id = 8;
+  int64 request_time = 9;
+  int32 fare = 10;
+  int32 driver_rating_given = 11;
+  int32 rider_rating_received = 12;
+  int64 dropoff_time = 13;
+  string driver_name = 14;
+}
+
+message ListRideRequestsRequest {
+  string rider_id = 1;
+}
+
+message ListRideRequestsResponse {
+  repeated RideRequestItem ride_requests = 1;
+  bool success = 2;
+}
+
+message MatchedWithDriverRequest {
+  string rider_id = 1;
+  string driver_id = 2;
+  string trip_id = 3;
+  string driver_name = 4;
+}
+
+message MatchedWithDriverResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message RideStartedRequest {
+  string rider_id = 1;
+  string trip_id = 2;
+}
+
+message RideStartedResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message RideCompletedRequest {
+  string rider_id = 1;
+  string trip_id = 2;
+  int64 dropoff_time = 3;
+  int32 fare = 4;
+}
+
+message RideCompletedResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetRiderDashboardRequest {
+  string rider_id = 1;
+}
+
+message GetRiderDashboardResponse {
+  string rider_id = 1;
+  double rating = 2;
+  int32 total_rides = 3;
+  RideRequestItem current_ride = 4;
+  repeated RideRequestItem ride_history = 5;
+  bool success = 6;
+}
+
+message GetRiderInfoRequest {
+  string rider_id = 1;
+}
+
+message GetRiderInfoResponse {
+  string rider_id = 1;
+  double rating = 2;
+  int32 total_rides = 3;
+  bool success = 4;
+}
+
+message RateDriverRequest {
+  string rider_id = 1;
+  string trip_id = 2;
+  int32 rating = 3;
+}
+
+message RateDriverResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message SetRatingFromDriverRequest {
+  string rider_id = 1;
+  string trip_id = 2;
+  int32 rating = 3;
+}
+
+message SetRatingFromDriverResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+enum RideStatus {
+  PENDING = 0;
+  MATCHED = 1;
+  IN_PROGRESS = 2;
+  COMPLETED = 3;
+  CANCELLED = 4;
+}
+
