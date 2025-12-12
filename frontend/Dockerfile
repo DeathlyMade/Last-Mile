@@ -24,6 +24,10 @@ RUN find src -name "*.tsx" -exec sed -i "s/import.meta.env.VITE_APP_GOOGLE_MAPS_
 # VERIFY the replacement happened (will fail build if not found)
 RUN grep -r "AIzaSy" src/components/RiderDashboard.tsx || { echo "API Key replacement FAILED"; exit 1; }
 
+# Copy proto definitions
+COPY backend/proto /app/backend-proto
+COPY googleapis /app/googleapis
+
 # Generate Protos
 RUN mkdir -p src/proto/google/api
 

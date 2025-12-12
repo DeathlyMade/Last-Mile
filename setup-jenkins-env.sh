@@ -2,7 +2,7 @@
 set -e
 
 # Configuration
-USER_HOME="/home/divyamsareen"
+USER_HOME="/Users/daksh15"
 TMP_CERTS="/tmp/certs"
 TMP_KUBECONFIG="/tmp/kubeconfig"
 ANSIBLE_BUILD_FILE="$(pwd)/ansible/roles/lastmile_deploy/tasks/build.yml"
@@ -56,7 +56,7 @@ echo "[4/4] Updating Ansible playbook with new port..."
 if [ -f "$ANSIBLE_BUILD_FILE" ]; then
     # Replace the port in DOCKER_HOST line
     # Matches export DOCKER_HOST="tcp://127.0.0.1:<digits>"
-    sed -i "s|export DOCKER_HOST=\"tcp://127.0.0.1:[0-9]*\"|export DOCKER_HOST=\"tcp://127.0.0.1:$DOCKER_PORT\"|g" "$ANSIBLE_BUILD_FILE"
+    sed -i '' "s|export DOCKER_HOST=\"tcp://127.0.0.1:[0-9]*\"|export DOCKER_HOST=\"tcp://127.0.0.1:$DOCKER_PORT\"|g" "$ANSIBLE_BUILD_FILE"
     echo "      Updated $ANSIBLE_BUILD_FILE"
 else
     echo "Error: Ansible build file not found at $ANSIBLE_BUILD_FILE"

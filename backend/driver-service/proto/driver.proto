@@ -1,0 +1,247 @@
+syntax = "proto3";
+
+package com.lastmile.driver.proto;
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";          
+import "google/protobuf/empty.proto";    
+
+option java_multiple_files = true;
+option java_package = "com.lastmile.driver.proto";
+option java_outer_classname = "DriverProto";
+
+service DriverService {
+  rpc RegisterRoute(RegisterRouteRequest) returns (RegisterRouteResponse){
+    option (google.api.http) = {
+      post: "/driver/{driver_id}/register-route"
+      body: "*"
+    };
+  };
+  rpc UpdateLocation(UpdateLocationRequest) returns (UpdateLocationResponse){
+    option (google.api.http) = {
+      post: "/driver/{driver_id}/location"
+      body: "*"
+    };
+  };
+
+  rpc GetDriverDashboard(GetDriverDashboardRequest) returns (GetDriverDashboardResponse) {
+    option (google.api.http) = { 
+      get: "/driver/dashboard/{driver_id}" 
+    };
+  };
+
+  // Fetch driver info for Matching Service
+  rpc GetDriverInfo(GetDriverInfoRequest) returns (GetDriverInfoResponse);
+
+  // Used by Matching Service to fetch available drivers at a station
+  rpc ListDrivers(ListDriversRequest) returns (ListDriversResponse);
+  
+  // Assign a trip to driver's active trips Trip Service
+  rpc AcceptTrip(AcceptTripRequest) returns (AcceptTripResponse);
+
+  // Driver rates rider at end of trip called from Trip Service
+  rpc RateRider(RateRiderRequest) returns (RateRiderResponse);
+
+  // Rider rates driver at end of trip called from Trip Service
+  rpc SetRatingReceivedFromRider(SetRatingReceivedFromRiderRequest) returns (SetRatingReceivedFromRiderResponse);
+
+  // Driver completes an active trip called from Trip Service
+  rpc CompleteActiveTrip(CompleteActiveTripRequest) returns (CompleteActiveTripResponse);
+
+  // Driver starts an active trip called from Trip Service
+  rpc StartTrip(StartTripRequest) returns (StartTripResponse);
+
+  // Server-side streaming for driver dashboard updates (new rides)
+  rpc MonitorDriverDashboard(MonitorDriverDashboardRequest) returns (stream MonitorDriverDashboardResponse);
+}
+
+message MonitorDriverDashboardRequest {
+  string driver_id = 1;
+}
+
+message MonitorDriverDashboardResponse {
+  bool success = 1;
+  string driver_id = 2;
+  repeated TripInfo active_trips = 3;
+  string message = 4;
+  MatchRequest match_request = 5;
+  TripUpdate trip_update = 6;
+}
+
+message MatchRequest {
+  string match_id = 1;
+  string rider_id = 2;
+  string pickup_station = 3;
+  string destination = 4;
+  int32 fare = 5;
+}
+
+message TripUpdate {
+  string trip_id = 1;
+  string status = 2;
+}
+
+message RegisterRouteRequest {
+  string driver_id = 1;
+  string destination = 2;
+  int32 available_seats = 3;
+  repeated string metro_stations = 4;
+}
+
+message RegisterRouteResponse {
+  string route_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message UpdateLocationRequest {
+  string driver_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+}
+
+message UpdateLocationResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+
+message GetDriverInfoRequest {
+  string driver_id = 1;
+}
+
+message GetDriverInfoResponse {
+  string driver_id = 1;
+  string destination = 2;
+  int32 available_seats = 3;
+  repeated string metro_stations = 4;
+  Location current_location = 5;
+  bool success = 6;
+  double rating = 7;
+}
+
+message ListDriversRequest {
+  string station = 1;
+}
+
+message DriverInfo {
+  string driver_id = 1;
+  string destination = 2;
+  int32 available_seats = 3;
+  repeated string metro_stations = 4;
+  Location current_location = 5;
+  double rating = 6;
+}
+
+message ListDriversResponse {
+  repeated DriverInfo drivers = 1;
+  bool success = 2;
+}
+
+// Trip information currently active or scheduled
+message TripInfo {
+  string trip_id = 1;
+  string rider_id = 2;
+  string rider_name = 3;
+  double rider_rating = 4; // snapshot of rider rating
+  string pickup_station = 5;
+  string destination = 6;
+  string status = 7; // scheduled | active | completed
+  int32 fare = 8;
+  int64 pickup_timestamp = 9; // epoch ms
+}
+
+// Completed ride history item
+message RideHistoryItem {
+  string trip_id = 1;
+  string date = 2; // YYYY-MM-DD
+  string rider_name = 3;
+  string destination = 4;
+  int32 fare = 5;
+  int32 rating_given = 6; // driver -> rider rating 1-5
+  int64 pickup_timestamp = 7;
+  int64 dropoff_timestamp = 8;
+}
+
+message GetDriverDashboardRequest { 
+  string driver_id = 1; 
+}
+
+message GetDriverDashboardResponse {
+  bool success = 1;
+  string driver_id = 2;
+  double driver_rating = 3;
+  int32 total_earnings = 4;
+  int32 today_earnings = 5;
+  int32 yesterday_earnings = 6;
+  repeated TripInfo active_trips = 7;
+  repeated RideHistoryItem ride_history = 8;
+  string destination = 10;
+  int32 available_seats = 11;
+  repeated string metro_stations = 12;
+  Location current_location = 13;
+}
+
+message AcceptTripRequest {
+  string driver_id = 1;
+  string trip_id = 2;
+  string rider_name = 3;
+  double rider_rating = 4;
+  string pickup_station = 5;
+  string destination = 6;
+  int32 fare = 7;
+  string rider_id = 8;
+}
+
+message AcceptTripResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message RateRiderRequest {
+  string driver_id = 1;
+  string trip_id = 2;
+  int32 rating = 3; // 1-5
+}
+
+message RateRiderResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message Location {
+  double latitude = 1;
+  double longitude = 2;
+  int64 timestamp = 3;
+}
+
+message SetRatingReceivedFromRiderRequest {
+  string driver_id = 1;
+  string trip_id = 2;
+  int32 rating = 3; // 1-5
+}
+
+message SetRatingReceivedFromRiderResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message CompleteActiveTripRequest {
+  string driver_id = 1;
+  string trip_id = 2;
+}
+
+message CompleteActiveTripResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message StartTripRequest {
+  string driver_id = 1;
+  string trip_id = 2;
+}
+
+message StartTripResponse {
+  bool success = 1;
+  string message = 2;
+}

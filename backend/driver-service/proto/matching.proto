@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+package com.lastmile.matching.proto;
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";         
+import "google/protobuf/empty.proto"; 
+
+option java_multiple_files = true;
+option java_package = "com.lastmile.matching.proto";
+option java_outer_classname = "MatchingProto";
+
+service MatchingService {
+  rpc MatchRiderWithDriver(MatchRiderWithDriverRequest) returns (MatchRiderWithDriverResponse){
+    option (google.api.http) = {
+      post: "/match"
+      body: "*"
+    };
+  };
+  rpc GetMatchStatus(GetMatchStatusRequest) returns (GetMatchStatusResponse){
+    option (google.api.http) = {
+      get: "/match/{match_id}"
+    };
+  };
+  rpc AcceptMatch(AcceptMatchRequest) returns (AcceptMatchResponse){
+    option (google.api.http) = {
+      post: "/match/{match_id}/accept"
+      body: "*"
+    };
+  };
+  rpc DeclineMatch(DeclineMatchRequest) returns (DeclineMatchResponse){
+    option (google.api.http) = {
+      post: "/match/{match_id}/decline"
+      body: "*"
+    };
+  };
+
+  rpc CancelMatchRequestByRider(CancelMatchRequest) returns (CancelMatchResponse){
+    option (google.api.http) = {
+      post: "/match/{match_id}/cancel"
+      body: "*"
+    };
+  };
+
+  // Server-side streaming for match status updates
+  rpc MonitorMatchStatus(MonitorMatchStatusRequest) returns (stream MonitorMatchStatusResponse);
+}
+
+message MonitorMatchStatusRequest {
+  string match_id = 1;
+  string rider_id = 2;
+}
+
+message MonitorMatchStatusResponse {
+  string match_id = 1;
+  string driver_id = 2;
+  string rider_id = 3;
+  MatchStatus status = 4;
+  string trip_id = 5;
+  bool success = 6;
+  string message = 7;
+  int32 fare = 8;
+}
+
+message MatchRiderWithDriverRequest {
+  string rider_id = 1;
+  string ride_request_id = 2;
+  string metro_station = 3;
+  string destination = 4;
+  int64 arrival_time = 5;
+}
+
+message MatchRiderWithDriverResponse {
+  string match_id = 1;
+  string driver_id = 2;
+  bool success = 3;
+  string message = 4;
+}
+
+message GetMatchStatusRequest {
+  string match_id = 1;
+}
+
+message GetMatchStatusResponse {
+  string match_id = 1;
+  string driver_id = 2;
+  string rider_id = 3;
+  MatchStatus status = 4;
+  string trip_id = 5; // newly added so rider can fetch trip
+  bool success = 6;
+}
+
+enum MatchStatus {
+  PENDING = 0;
+  MATCHED = 1;
+  CONFIRMED = 2;
+  CANCELLED = 3;
+}
+
+message AcceptMatchRequest {
+  string match_id = 1;
+  string driver_id = 2;
+}
+
+message AcceptMatchResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message DeclineMatchRequest {
+  string match_id = 1;
+  string driver_id = 2;
+}
+
+message DeclineMatchResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message CancelMatchRequest {
+  string match_id = 1;
+  string rider_id = 2;
+}
+
+message CancelMatchResponse {
+  bool success = 1;
+  string message = 2;
+}
