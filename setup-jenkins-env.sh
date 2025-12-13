@@ -51,17 +51,19 @@ if [ -z "$DOCKER_PORT" ]; then
 fi
 echo "      Found Docker port: $DOCKER_PORT"
 
-# 4. Update Ansible Playbook
-echo "[4/4] Updating Ansible playbook with new port..."
-if [ -f "$ANSIBLE_BUILD_FILE" ]; then
-    # Replace the port in DOCKER_HOST line
-    # Matches export DOCKER_HOST="tcp://127.0.0.1:<digits>"
-    sed -i '' "s|export DOCKER_HOST=\"tcp://127.0.0.1:[0-9]*\"|export DOCKER_HOST=\"tcp://127.0.0.1:$DOCKER_PORT\"|g" "$ANSIBLE_BUILD_FILE"
-    echo "      Updated $ANSIBLE_BUILD_FILE"
-else
-    echo "Error: Ansible build file not found at $ANSIBLE_BUILD_FILE"
-    exit 1
-fi
+# 4. Export Docker Config for Jenkins
+echo "[4/4] Exporting Docker config to /tmp/jenkins_env.properties..."
+PROPS_FILE="/tmp/jenkins_env.properties"
+rm -f "$PROPS_FILE"
+
+cat <<EOT >> "$PROPS_FILE"
+DOCKER_HOST=tcp://127.0.0.1:$DOCKER_PORT
+DOCKER_TLS_VERIFY=1
+DOCKER_CERT_PATH=$TMP_CERTS
+EOT
+
+chmod 644 "$PROPS_FILE"
+echo "      Config exported to $PROPS_FILE"
 
 # 5. Enable Minikube Addons
 echo "[5/5] Enabling Minikube Addons (ingress, metrics-server)..."
