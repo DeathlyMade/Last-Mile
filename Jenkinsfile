@@ -20,9 +20,9 @@ pipeline {
         stage('Load Config') {
             steps {
                 script {
-                    env.DOCKER_HOST = sh(script: "grep DOCKER_HOST /tmp/jenkins_env.properties | cut -d'=' -f2", returnStdout: true).trim()
-                    env.DOCKER_TLS_VERIFY = sh(script: "grep DOCKER_TLS_VERIFY /tmp/jenkins_env.properties | cut -d'=' -f2", returnStdout: true).trim()
-                    env.DOCKER_CERT_PATH = sh(script: "grep DOCKER_CERT_PATH /tmp/jenkins_env.properties | cut -d'=' -f2", returnStdout: true).trim()
+                    env.MK_DOCKER_HOST = sh(script: "grep DOCKER_HOST /tmp/jenkins_env.properties | cut -d'=' -f2", returnStdout: true).trim()
+                    env.MK_DOCKER_TLS_VERIFY = sh(script: "grep DOCKER_TLS_VERIFY /tmp/jenkins_env.properties | cut -d'=' -f2", returnStdout: true).trim()
+                    env.MK_DOCKER_CERT_PATH = sh(script: "grep DOCKER_CERT_PATH /tmp/jenkins_env.properties | cut -d'=' -f2", returnStdout: true).trim()
                 }
             }
         }
@@ -46,10 +46,14 @@ pipeline {
         }
 
         stage('Build Images') {
-            parallel {
-                stage('Backend Services') {
-                    steps {
-                        script {
+            steps {
+                withEnv([
+                    "DOCKER_HOST=${env.MK_DOCKER_HOST}",
+                    "DOCKER_TLS_VERIFY=${env.MK_DOCKER_TLS_VERIFY}",
+                    "DOCKER_CERT_PATH=${env.MK_DOCKER_CERT_PATH}"
+                ]) {
+                    script {
+                        parallel backend: {
                             def services = [
                                 'station-service': 'backend/Dockerfile.station',
                                 'user-service': 'backend/Dockerfile.user',
@@ -63,17 +67,11 @@ pipeline {
                             services.each { name, dockerfile ->
                                 sh "docker build -t lastmile/${name}:latest -f ${dockerfile} backend/"
                             }
+                        }, redis: {
+                            sh "docker build -t lastmile/redis:latest backend/"
+                        }, frontend: {
+                            sh "docker build -t lastmile/new-frontend:latest -f frontend/Dockerfile ."
                         }
-                    }
-                }
-                stage('Redis') {
-                    steps {
-                        sh "docker build -t lastmile/redis:latest backend/"
-                    }
-                }
-                stage('Frontend') {
-                    steps {
-                        sh "docker build -t lastmile/new-frontend:latest -f frontend/Dockerfile ."
                     }
                 }
             }
