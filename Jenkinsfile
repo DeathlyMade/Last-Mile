@@ -79,7 +79,7 @@ pipeline {
 
         stage('Push Images') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     withEnv([
                         "DOCKER_HOST=${env.MK_DOCKER_HOST}",
                         "DOCKER_TLS_VERIFY=${env.MK_DOCKER_TLS_VERIFY}",
