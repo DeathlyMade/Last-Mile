@@ -1,6 +1,6 @@
 # LastMile - Metro Station Drop Service
 
-Project 1
+Project 1 (Last-Mile)
 Design and implement a microservice application called LastMile which can be used by
 commuters to hire a drop service from metro stations to nearby locations. The application
 consists of riders and drivers. Drivers indicate their route and the metro stations near the route
