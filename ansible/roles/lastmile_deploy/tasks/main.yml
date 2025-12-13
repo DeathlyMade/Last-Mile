@@ -3,5 +3,10 @@
 # This file imports smaller, logical task files for better maintainability.
 
 
+- name: Ensure deployment directory exists
+  file:
+    path: "{{ playbook_dir }}/../k8s-deployment"
+    state: directory
+
 - import_tasks: configure.yml
 - import_tasks: deploy.yml
