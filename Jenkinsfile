@@ -45,39 +45,7 @@ pipeline {
             }
         }
 
-        stage('Build Images') {
-            steps {
-                withEnv([
-                    "DOCKER_HOST=${env.MK_DOCKER_HOST}",
-                    "DOCKER_TLS_VERIFY=${env.MK_DOCKER_TLS_VERIFY}",
-                    "DOCKER_CERT_PATH=${env.MK_DOCKER_CERT_PATH}"
-                ]) {
-                    script {
-                        parallel backend: {
-                            def services = [
-                                'station-service': 'backend/Dockerfile.station',
-                                'user-service': 'backend/Dockerfile.user',
-                                'driver-service': 'backend/Dockerfile.driver',
-                                'rider-service': 'backend/Dockerfile.rider',
-                                'location-service': 'backend/Dockerfile.location',
-                                'matching-service': 'backend/Dockerfile.matching',
-                                'trip-service': 'backend/Dockerfile.trip',
-                                'notification-service': 'backend/Dockerfile.notification'
-                            ]
-                            services.each { name, dockerfile ->
-                                sh "docker build -t lastmile/${name}:latest -f ${dockerfile} backend/"
-                            }
-                        }, redis: {
-                            sh "docker build -t lastmile/redis:latest backend/"
-                        }, frontend: {
-                            sh "docker build -t lastmile/new-frontend:latest -f frontend/Dockerfile ."
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Push Images') {
+        stage('Build & Push Images') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     withEnv([
@@ -85,17 +53,32 @@ pipeline {
                         "DOCKER_TLS_VERIFY=${env.MK_DOCKER_TLS_VERIFY}",
                         "DOCKER_CERT_PATH=${env.MK_DOCKER_CERT_PATH}"
                     ]) {
-                        sh '''
-                            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                        '''
+                        
+                        // login first to ensure we have access if needed (though usually needed for push)
+                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+
                         script {
-                            def images = [
-                                'station-service', 'user-service', 'driver-service',
-                                'rider-service', 'location-service', 'matching-service',
-                                'trip-service', 'notification-service', 'redis', 'new-frontend'
-                            ]
-                            images.each { name ->
-                                sh "docker push lastmile/${name}:latest"
+                            parallel backend: {
+                                def services = [
+                                    'station-service': 'backend/Dockerfile.station',
+                                    'user-service': 'backend/Dockerfile.user',
+                                    'driver-service': 'backend/Dockerfile.driver',
+                                    'rider-service': 'backend/Dockerfile.rider',
+                                    'location-service': 'backend/Dockerfile.location',
+                                    'matching-service': 'backend/Dockerfile.matching',
+                                    'trip-service': 'backend/Dockerfile.trip',
+                                    'notification-service': 'backend/Dockerfile.notification'
+                                ]
+                                services.each { name, dockerfile ->
+                                    sh "docker build -t ${env.DOCKER_USER}/${name}:latest -f ${dockerfile} backend/"
+                                    sh "docker push ${env.DOCKER_USER}/${name}:latest"
+                                }
+                            }, redis: {
+                                sh "docker build -t ${env.DOCKER_USER}/redis:latest backend/"
+                                sh "docker push ${env.DOCKER_USER}/redis:latest"
+                            }, frontend: {
+                                sh "docker build -t ${env.DOCKER_USER}/new-frontend:latest -f frontend/Dockerfile ."
+                                sh "docker push ${env.DOCKER_USER}/new-frontend:latest"
                             }
                         }
                     }
@@ -105,9 +88,11 @@ pipeline {
 
         stage('Deploy with Ansible') {
             steps {
-                // Run the Ansible playbook from the ansible directory to load ansible.cfg
-                dir('ansible') {
-                    sh 'ansible-playbook playbook.yml -i inventory/hosts.ini'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    // Run the Ansible playbook from the ansible directory to load ansible.cfg
+                    dir('ansible') {
+                        sh "ansible-playbook playbook.yml -i inventory/hosts.ini -e 'docker_user=${DOCKER_USER}'"
+                    }
                 }
             }
         }

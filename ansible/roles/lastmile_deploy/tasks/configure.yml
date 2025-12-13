@@ -12,6 +12,16 @@
     src: ../../../../k8s-springboot/
     dest: "{{ playbook_dir }}/../k8s-deployment/"
 
+- name: Update Image Namespace in Manifests
+  shell: |
+    # Replace lastmile/ with {{ docker_user }}/ in all yaml files
+    # Only if docker_user is defined to avoid breaking default if not passed
+    if [ -n "{{ docker_user }}" ]; then
+      sed -i 's|image: lastmile/|image: {{ docker_user }}/|g' {{ playbook_dir }}/../k8s-deployment/*.yaml
+    fi
+  args:
+    executable: /bin/bash
+
 # - name: Enable Ingress Addon (Minikube) - SKIPPED (Run manually or via setup script)
 #   command: minikube addons enable ingress
 #   ignore_errors: yes
