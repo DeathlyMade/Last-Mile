@@ -16,6 +16,7 @@ pipeline {
                 // gitscmpoll requires a standard checkout or the 'git' step
                 checkout scm
             }
+        }
         stage('Load Config') {
             steps {
                 script {
