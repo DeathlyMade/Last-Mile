@@ -20,10 +20,9 @@ pipeline {
         stage('Load Config') {
             steps {
                 script {
-                    def props = readProperties file: '/tmp/jenkins_env.properties'
-                    env.DOCKER_HOST = props['DOCKER_HOST']
-                    env.DOCKER_TLS_VERIFY = props['DOCKER_TLS_VERIFY']
-                    env.DOCKER_CERT_PATH = props['DOCKER_CERT_PATH']
+                    env.DOCKER_HOST = sh(script: "grep DOCKER_HOST /tmp/jenkins_env.properties | cut -d'=' -f2", returnStdout: true).trim()
+                    env.DOCKER_TLS_VERIFY = sh(script: "grep DOCKER_TLS_VERIFY /tmp/jenkins_env.properties | cut -d'=' -f2", returnStdout: true).trim()
+                    env.DOCKER_CERT_PATH = sh(script: "grep DOCKER_CERT_PATH /tmp/jenkins_env.properties | cut -d'=' -f2", returnStdout: true).trim()
                 }
             }
         }
