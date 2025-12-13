@@ -77,6 +77,32 @@ pipeline {
             }
         }
 
+        stage('Push Images') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    withEnv([
+                        "DOCKER_HOST=${env.MK_DOCKER_HOST}",
+                        "DOCKER_TLS_VERIFY=${env.MK_DOCKER_TLS_VERIFY}",
+                        "DOCKER_CERT_PATH=${env.MK_DOCKER_CERT_PATH}"
+                    ]) {
+                        sh '''
+                            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                        '''
+                        script {
+                            def images = [
+                                'station-service', 'user-service', 'driver-service',
+                                'rider-service', 'location-service', 'matching-service',
+                                'trip-service', 'notification-service', 'redis', 'new-frontend'
+                            ]
+                            images.each { name ->
+                                sh "docker push lastmile/${name}:latest"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Deploy with Ansible') {
             steps {
                 // Run the Ansible playbook from the ansible directory to load ansible.cfg
